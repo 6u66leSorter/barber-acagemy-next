@@ -23,7 +23,7 @@ async function bootstrap() {
     .build()
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swagger))
 
-  const port = Number(process.env.PORT || 8787)
+  const port = Number(process.env.PORT || process.env.API_PORT || 8787)
   await app.listen(port, process.env.API_HOST || '0.0.0.0')
   console.log(`MADCAP API listening on http://localhost:${port}`)
 }

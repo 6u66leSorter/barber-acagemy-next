@@ -1,0 +1,54 @@
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common'
+import { IsInt, IsOptional, IsPositive, IsString, MinLength } from 'class-validator'
+import { Type } from 'class-transformer'
+import { MaxAuthGuard } from '../auth/max-auth.guard'
+import { CurrentMaxUser } from '../auth/current-user.decorator'
+import { MaxUser } from '../auth/auth.types'
+import { assertMaxUserId } from '../auth/assert-max-user'
+import { StudentsService } from './students.service'
+
+class MaxIdQuery {
+  @Type(() => Number) @IsInt() @IsPositive() max_user_id!: number
+}
+class RegistrationDto extends MaxIdQuery {
+  @IsString() @MinLength(2) full_name!: string
+  @IsString() @MinLength(7) phone!: string
+  @Type(() => Number) @IsInt() @IsPositive() lessons_count!: number
+  @IsOptional() @IsString() metro?: string
+  @IsOptional() @IsString() username?: string
+  @IsOptional() @IsString() first_name?: string
+  @IsOptional() @IsString() last_name?: string
+}
+class AboutDto extends MaxIdQuery { @IsString() about_me!: string }
+class ProfileEditDto extends MaxIdQuery { @IsString() @MinLength(2) full_name!: string; @IsString() @MinLength(7) phone!: string; @IsOptional() @IsString() metro?: string }
+
+@Controller()
+@UseGuards(MaxAuthGuard)
+export class StudentsController {
+  constructor(private readonly students: StudentsService) {}
+
+  @Post('students')
+  register(@Body() body: RegistrationDto, @CurrentMaxUser() user: MaxUser) {
+    assertMaxUserId(body.max_user_id, user)
+    return { ok: true, data: { student: this.students.register({ maxUserId: user.id, fullName: body.full_name, phone: body.phone, lessonsCount: body.lessons_count, metro: body.metro, username: body.username, firstName: body.first_name, lastName: body.last_name }) } }
+  }
+
+  @Get('student/homeworks')
+  getHomeworks(@Query() query: MaxIdQuery, @CurrentMaxUser() user: MaxUser) {
+    assertMaxUserId(query.max_user_id, user)
+    return { ok: true, data: { homeworks: this.students.homeworksByMaxId(user.id) } }
+  }
+
+  @Post('student/about')
+  updateAbout(@Body() body: AboutDto, @CurrentMaxUser() user: MaxUser) {
+    assertMaxUserId(body.max_user_id, user)
+    return { ok: true, data: { student: this.students.updateAboutByMaxId(user.id, body.about_me) } }
+  }
+
+  @Post('student/profile-edit')
+  requestProfileEdit(@Body() body: ProfileEditDto, @CurrentMaxUser() user: MaxUser) {
+    assertMaxUserId(body.max_user_id, user)
+    this.students.requestProfileEdit(user.id, { fullName: body.full_name, phone: body.phone, metro: body.metro })
+    return { ok: true }
+  }
+}

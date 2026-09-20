@@ -7,7 +7,12 @@ export class MaxAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>()
     const mode = String(process.env.MAX_WEBAPP_AUTH || 'strict').toLowerCase()
-    if (mode === 'off' && process.env.NODE_ENV !== 'production') return true
+    if (mode === 'off' && process.env.NODE_ENV !== 'production') {
+      const devId = Number(request.header('x-max-user-id') || process.env.DEV_MAX_USER_ID || 1000000001)
+      if (!Number.isSafeInteger(devId) || devId <= 0) throw new UnauthorizedException('Некорректный локальный MAX ID.')
+      request.maxUser = { id: devId, first_name: 'Локальный', last_name: 'пользователь' }
+      return true
+    }
 
     const token = process.env.MAX_BOT_TOKEN || ''
     if (!token) throw new ServiceUnavailableException('MAX авторизация не настроена на сервере.')
