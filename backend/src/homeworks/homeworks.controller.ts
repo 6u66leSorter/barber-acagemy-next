@@ -13,6 +13,10 @@ class MaxIdQuery {
   @Type(() => Number) @IsInt() @Min(1) max_user_id!: number
 }
 
+class TeacherHomeworkQuery extends MaxIdQuery {
+  @Type(() => Number) @IsInt() @Min(1) student_id!: number
+}
+
 class CreateHomeworkDto extends MaxIdQuery {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) lesson_number?: number
   @IsOptional() @IsBoolean() is_bonus?: boolean
@@ -67,7 +71,7 @@ export class HomeworksController {
   }
 
   @Get('teacher/student-homeworks')
-  teacherHomeworks(@Query() query: MaxIdQuery & { student_id: number }, @CurrentMaxUser() user: MaxUser) {
+  teacherHomeworks(@Query() query: TeacherHomeworkQuery, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(query.max_user_id, user)
     const account = this.users.requireByMaxId(user.id)
     const teacher = this.database.db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(account.id) as { id: number } | undefined
