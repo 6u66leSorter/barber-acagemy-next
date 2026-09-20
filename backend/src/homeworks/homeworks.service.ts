@@ -59,7 +59,7 @@ export class HomeworksService {
   }
 
   teacherStudents(teacherId: number) {
-    return this.database.db.prepare(`SELECT s.*, u.max_user_id, u.username, u.first_name, u.last_name, COUNT(CASE WHEN h.status = 'pending' THEN 1 END) AS pending_count FROM students s JOIN users u ON s.user_id = u.id JOIN student_teachers st ON s.id = st.student_id LEFT JOIN homeworks h ON s.id = h.student_id WHERE st.teacher_id = ? AND s.status IN ('studying','completed') GROUP BY s.id HAVING pending_count > 0 ORDER BY pending_count DESC, s.full_name`).all(teacherId)
+    return this.database.db.prepare(`SELECT s.*, u.max_user_id, u.username, u.first_name, u.last_name, COUNT(CASE WHEN h.status = 'pending' THEN 1 END) AS pending_count FROM students s JOIN users u ON s.user_id = u.id JOIN student_teachers st ON s.id = st.student_id LEFT JOIN homeworks h ON s.id = h.student_id WHERE st.teacher_id = ? AND s.status IN ('studying','completed') GROUP BY s.id ORDER BY pending_count DESC, s.full_name`).all(teacherId)
   }
 
   teacherHomeworks(teacherId: number, studentId: number, includeReviewed = true) {
