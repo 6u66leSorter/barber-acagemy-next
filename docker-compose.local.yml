@@ -5,3 +5,7 @@ services:
       NODE_ENV: development
       MAX_WEBAPP_AUTH: off
       DEV_MAX_USER_ID: 1000000001
+  web:
+    build:
+      args:
+        VITE_DEMO_MODE: "true"

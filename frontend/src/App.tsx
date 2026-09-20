@@ -6,6 +6,7 @@ import { GuestPage } from './pages/GuestPage'
 import { LoadingPage } from './pages/LoadingPage'
 import { RoleDashboard } from './pages/RoleDashboard'
 import { GuestPortfolioPage } from './pages/GuestPortfolioPage'
+import { RoleDataPage } from './pages/RoleDataPage'
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/guest" element={<GuestPage />} />
           <Route path="/portfolio" element={<GuestPortfolioPage />} />
           <Route path="/dashboard" element={<RoleDashboard />} />
+          <Route path="/data" element={<RoleDataPage />} />
           <Route path="/loading" element={<LoadingPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

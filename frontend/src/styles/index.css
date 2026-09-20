@@ -8,6 +8,8 @@ a { color: inherit; }
 .app-header h1 { margin: 3px 0 0; font-size: 20px; letter-spacing: -.03em; }
 .eyebrow { color: #c9a227; font-size: 10px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
 .role-pill { border: 1px solid #745f21; border-radius: 999px; color: #d9bd62; font-size: 11px; padding: 6px 10px; }
+.demo-switcher { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; background: #1c1810; color: #d9bd62; font-size: 12px; }
+.demo-switcher select { border: 1px solid #745f21; border-radius: 8px; padding: 5px 8px; background: #11100e; color: #f5f1e8; }
 .app-main { padding: 18px; }
 .card { border: 1px solid #2c281f; border-radius: 20px; padding: 20px; background: #11100e; box-shadow: 0 12px 35px #0006; }
 .card h2 { margin: 8px 0 10px; font-size: 24px; }
@@ -15,5 +17,6 @@ a { color: inherit; }
 .button { display: inline-flex; margin-top: 14px; border-radius: 12px; padding: 11px 15px; background: #c9a227; color: #080808; text-decoration: none; font-weight: 800; }
 .state-message { padding: 40px 10px; text-align: center; color: #b9b3a7; }
 .error { color: #f19a8c; }
+.data-preview { max-height: 56vh; overflow: auto; border: 1px solid #2c281f; border-radius: 12px; padding: 12px; background: #080808; color: #d9d3c6; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
 .bottom-nav { position: fixed; right: 0; bottom: 0; left: 0; display: flex; justify-content: center; gap: 28px; padding: 16px; border-top: 1px solid #2c281f; background: #0b0b0bf2; }
 .bottom-nav a { color: #b9b3a7; font-size: 13px; text-decoration: none; }

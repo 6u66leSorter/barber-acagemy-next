@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { api } from '../../api/client'
-import { getMaxUserId, prepareMax } from '../../platform/max'
+import { getMaxUserId, isDemoMode, prepareMax, setDemoUserId } from '../../platform/max'
 
 export type Session = {
   hasUser: boolean
@@ -15,7 +15,7 @@ export type Session = {
   unread_notifications_count: number
 }
 
-type AuthContextValue = { session: Session | null; loading: boolean; error: string; reload: () => Promise<void> }
+type AuthContextValue = { session: Session | null; loading: boolean; error: string; isDemoMode: boolean; selectDemoRole: (maxUserId: number) => void; reload: () => Promise<void> }
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -42,7 +42,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => { prepareMax(); void reload() }, [])
-  const value = useMemo(() => ({ session, loading, error, reload }), [session, loading, error])
+  const selectDemoRole = (maxUserId: number) => {
+    setDemoUserId(maxUserId)
+    void reload()
+  }
+  const value = useMemo(() => ({ session, loading, error, isDemoMode, selectDemoRole, reload }), [session, loading, error])
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
