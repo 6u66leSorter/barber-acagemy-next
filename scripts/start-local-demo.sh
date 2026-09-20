@@ -8,7 +8,11 @@ fi
 
 if ! docker info >/dev/null 2>&1; then
   echo "Запускаю Docker Desktop…"
-  open -a Docker
+  if docker desktop start >/dev/null 2>&1; then
+    :
+  else
+    open -a Docker 2>/dev/null || true
+  fi
 
   for attempt in {1..60}; do
     if docker info >/dev/null 2>&1; then
