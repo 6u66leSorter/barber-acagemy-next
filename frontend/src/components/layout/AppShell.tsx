@@ -20,9 +20,10 @@ export function AppShell({ children }: PropsWithChildren) {
       <main className="app-main">{children}</main>
       <nav className="bottom-nav">
         <Link to="/">Главная</Link>
-        <Link to="/portfolio">Портфолио</Link>
-        {session?.role && <Link to="/data">Данные</Link>}
-        {session?.role && <Link to="/tools">Профиль</Link>}
+        {!session?.role && <Link to="/portfolio">Портфолио</Link>}
+        {session?.role === 'student' && <><Link to="/data">Работы</Link><Link to="/chat">Чат</Link><Link to="/tools">Профиль</Link></>}
+        {session?.role === 'teacher' && <><Link to="/data">Ученики</Link><Link to="/chat">Чат</Link><Link to="/tools">Профиль</Link></>}
+        {session?.role === 'admin' && <><Link to="/data">Академия</Link><Link to="/chat">Чат</Link><Link to="/notifications">Уведомления</Link></>}
         {session?.role && <Link to="/notifications">Уведомления</Link>}
       </nav>
     </div>
