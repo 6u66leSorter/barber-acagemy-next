@@ -47,6 +47,13 @@ a { color: inherit; }
 .student-tab { min-width: 150px; border: 1px solid #3b3528; border-radius: 12px; padding: 10px; text-align: left; background: #11100e; color: #d9d3c6; cursor: pointer; }
 .student-tab.active { border-color: #c9a227; background: #2a2314; }
 .student-tab small { display: block; margin-top: 4px; color: #8f897d; }
+.search-field { display: grid; gap: 6px; margin: 0 0 14px; color: #b9b3a7; font-size: 12px; }
+.search-field input { width: 100%; border: 1px solid #3b3528; border-radius: 12px; padding: 11px 12px; background: #11100e; color: #f5f1e8; }
+.student-list { display: grid; gap: 8px; margin: 0 0 24px; }
+.student-row { border: 1px solid #2c281f; border-radius: 14px; padding: 12px; background: #11100e; }
+.student-row strong, .student-row span { display: block; }
+.student-row span { margin-top: 4px; color: #c9a227; font-size: 12px; }
+.student-row p { margin: 8px 0 0; color: #8f897d; font-size: 12px; line-height: 1.5; }
 .action-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
 .stat-card { border: 1px solid #2c281f; border-radius: 14px; padding: 14px; background: #11100e; }
