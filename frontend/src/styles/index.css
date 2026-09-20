@@ -38,6 +38,10 @@ a { color: inherit; }
 .text-button { margin-top: 12px; padding: 0; border: 0; background: transparent; color: #d9bd62; cursor: pointer; }
 .inline-form { display: grid; gap: 10px; margin-top: 16px; }
 .inline-form textarea { min-height: 90px; border: 1px solid #3b3528; border-radius: 12px; padding: 12px; resize: vertical; background: #11100e; color: #f5f1e8; }
+.review-form { display: grid; gap: 12px; margin-top: 18px; border: 1px solid #3b3528; border-radius: 14px; padding: 14px; background: #17140f; }
+.review-form label { display: flex; align-items: center; gap: 10px; color: #d9d3c6; font-size: 13px; }
+.review-form select { border: 1px solid #745f21; border-radius: 8px; padding: 7px 10px; background: #11100e; color: #f5f1e8; }
+.review-form textarea { min-height: 90px; border: 1px solid #3b3528; border-radius: 12px; padding: 12px; resize: vertical; background: #11100e; color: #f5f1e8; }
 .success { color: #a7d5a6 !important; }
 .student-tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 16px; padding-bottom: 4px; }
 .student-tab { min-width: 150px; border: 1px solid #3b3528; border-radius: 12px; padding: 10px; text-align: left; background: #11100e; color: #d9d3c6; cursor: pointer; }
