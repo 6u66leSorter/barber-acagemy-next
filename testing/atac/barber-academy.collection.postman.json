@@ -1,0 +1,265 @@
+{
+  "info": {
+    "name": "Barber Academy API Scenarios",
+    "_postman_id": "d8f4f9a9-1ab8-4ef4-92ee-3c2de7e6a111",
+    "description": "Main API scenarios for Barber Academy backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "A - Session and Base Checks",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health"
+          }
+        },
+        {
+          "name": "Session (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/session?max_user_id={{adminMaxUserId}}"
+          }
+        },
+        {
+          "name": "Admin Students Moderation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/students?max_user_id={{adminMaxUserId}}&status=moderation"
+          }
+        },
+        {
+          "name": "Admin Teachers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/teachers?max_user_id={{adminMaxUserId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "B - Student Moderation",
+      "item": [
+        {
+          "name": "Approve Student",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"max_user_id\": {{adminMaxUserId}},\n  \"student_id\": {{studentId}},\n  \"action\": \"approve\"\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/students"
+          }
+        },
+        {
+          "name": "Session (Student) After Approval",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/session?max_user_id={{studentMaxUserId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "C - Teacher Assignment",
+      "item": [
+        {
+          "name": "Assign Student to Teacher",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"max_user_id\": {{adminMaxUserId}},\n  \"teacher_id\": {{teacherId}},\n  \"student_id\": {{studentId}}\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/assign-student"
+          }
+        },
+        {
+          "name": "Teacher Students",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/teacher/students?max_user_id={{teacherMaxUserId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "D - Student Homework Submit",
+      "item": [
+        {
+          "name": "Submit Homework (multipart)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "max_user_id",
+                  "type": "text",
+                  "value": "{{studentMaxUserId}}"
+                },
+                {
+                  "key": "is_bonus",
+                  "type": "text",
+                  "value": "0"
+                },
+                {
+                  "key": "lesson_number",
+                  "type": "text",
+                  "value": "1"
+                },
+                {
+                  "key": "haircut_name",
+                  "type": "text",
+                  "value": "ATAC smoke cut"
+                },
+                {
+                  "key": "text_content",
+                  "type": "text",
+                  "value": "Uploaded from ATAC scenario"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "{{homeworkFilePath}}"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/homeworks"
+          }
+        },
+        {
+          "name": "Student Homeworks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/student/homeworks?max_user_id={{studentMaxUserId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "E - Teacher Review",
+      "item": [
+        {
+          "name": "Teacher Student Homeworks (include reviewed)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/teacher/student-homeworks?max_user_id={{teacherMaxUserId}}&student_id={{studentId}}&include_reviewed=true"
+          }
+        },
+        {
+          "name": "Approve Homework",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"max_user_id\": {{teacherMaxUserId}},\n  \"homework_id\": {{homeworkId}},\n  \"status\": \"approved\",\n  \"rating\": 5,\n  \"comment\": \"Looks good\"\n}"
+            },
+            "url": "{{baseUrl}}/api/teacher/review"
+          }
+        }
+      ]
+    },
+    {
+      "name": "F - Notifications and Audit",
+      "item": [
+        {
+          "name": "Student Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/notifications?max_user_id={{studentMaxUserId}}&limit=40"
+          }
+        },
+        {
+          "name": "Mark Notifications Read All",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"max_user_id\": {{studentMaxUserId}},\n  \"read_all\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/notifications/read"
+          }
+        },
+        {
+          "name": "Admin Audit",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/audit?max_user_id={{adminMaxUserId}}&limit=50"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8787"
+    },
+    {
+      "key": "adminMaxUserId",
+      "value": "111111111"
+    },
+    {
+      "key": "teacherMaxUserId",
+      "value": "222222222"
+    },
+    {
+      "key": "studentMaxUserId",
+      "value": "333333333"
+    },
+    {
+      "key": "teacherId",
+      "value": "1"
+    },
+    {
+      "key": "studentId",
+      "value": "1"
+    },
+    {
+      "key": "homeworkId",
+      "value": "1"
+    },
+    {
+      "key": "homeworkFilePath",
+      "value": "testing/atac/fixtures/homework-sample.txt"
+    }
+  ]
+}
