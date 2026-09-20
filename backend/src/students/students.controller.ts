@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, Post, UseGuards } from '@nestjs/common'
 import { IsInt, IsOptional, IsPositive, IsString, MinLength } from 'class-validator'
 import { Type } from 'class-transformer'
 import { MaxAuthGuard } from '../auth/max-auth.guard'
@@ -31,12 +31,6 @@ export class StudentsController {
   register(@Body() body: RegistrationDto, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(body.max_user_id, user)
     return { ok: true, data: { student: this.students.register({ maxUserId: user.id, fullName: body.full_name, phone: body.phone, lessonsCount: body.lessons_count, metro: body.metro, username: body.username, firstName: body.first_name, lastName: body.last_name }) } }
-  }
-
-  @Get('student/homeworks')
-  getHomeworks(@Query() query: MaxIdQuery, @CurrentMaxUser() user: MaxUser) {
-    assertMaxUserId(query.max_user_id, user)
-    return { ok: true, data: { homeworks: this.students.homeworksByMaxId(user.id) } }
   }
 
   @Post('student/about')

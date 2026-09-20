@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 
 export type UserRole = 'guest' | 'student' | 'teacher' | 'admin'
@@ -26,6 +26,20 @@ export class UsersService {
 
   rolesForUser(userId: number): UserRole[] {
     return (this.database.db.prepare('SELECT role FROM user_roles WHERE user_id = ? ORDER BY role').all(userId) as Array<{ role: UserRole }>).map((row) => row.role)
+  }
+
+  requireByMaxId(maxUserId: number) {
+    const user = this.findByMaxId(maxUserId)
+    if (!user) throw new NotFoundException('Пользователь не найден.')
+    return user
+  }
+
+  hasRole(userId: number, role: UserRole) {
+    return this.rolesForUser(userId).includes(role)
+  }
+
+  addRole(userId: number, role: UserRole) {
+    this.ensureRole(userId, role)
   }
 
   getOrCreateGuest(maxUserId: number, profile?: { username?: string | null; firstName?: string | null; lastName?: string | null }) {
