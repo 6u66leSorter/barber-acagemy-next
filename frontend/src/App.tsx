@@ -9,6 +9,7 @@ import { GuestPortfolioPage } from './pages/GuestPortfolioPage'
 import { RoleDataPage } from './pages/RoleDataPage'
 import { NotificationsPage } from './pages/NotificationsPage'
 import { StudentToolsPage } from './pages/StudentToolsPage'
+import { HomeworkDetailPage } from './pages/HomeworkDetailPage'
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/data" element={<RoleDataPage />} />
           <Route path="/tools" element={<StudentToolsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/homeworks/:id" element={<HomeworkDetailPage />} />
           <Route path="/loading" element={<LoadingPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

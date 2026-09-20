@@ -13,6 +13,16 @@ export class HomeworksService {
     return this.database.db.prepare(`SELECT h.*, s.full_name AS student_name, s.user_id AS student_user_id, u.max_user_id AS student_max_user_id FROM homeworks h JOIN students s ON h.student_id = s.id JOIN users u ON s.user_id = u.id WHERE h.id = ?`).get(id) as Record<string, unknown> | undefined
   }
 
+  details(homeworkId: number, userId: number) {
+    const homework = this.byId(homeworkId)
+    if (!homework) throw new NotFoundException('Домашнее задание не найдено.')
+    const studentId = Number(homework.student_id)
+    const isStudent = homework.student_user_id === userId
+    const isTeacher = this.database.db.prepare('SELECT 1 FROM student_teachers WHERE student_id = ? AND teacher_id IN (SELECT id FROM teachers WHERE user_id = ?)').get(studentId, userId)
+    if (!isStudent && !isTeacher && !this.users.hasRole(userId, 'admin')) throw new ForbiddenException('Нет доступа к этой работе.')
+    return { homework, attachments: this.attachments(homeworkId), comments: this.comments(homeworkId) }
+  }
+
   attachments(homeworkId: number) {
     return this.database.db.prepare('SELECT id, homework_id, file_id, content_type, sort_order, created_at FROM homework_files WHERE homework_id = ? ORDER BY sort_order ASC, id ASC').all(homeworkId)
   }
@@ -26,6 +36,15 @@ export class HomeworksService {
     if (duplicate) throw new BadRequestException('Работа с таким уроком уже ожидает проверки.')
     const result = this.database.db.prepare(`INSERT INTO homeworks (student_id, lesson_number, is_bonus, content_type, file_id, text_content, status, haircut_name) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`).run(input.studentId, input.lessonNumber ?? null, input.isBonus ? 1 : 0, input.contentType, input.fileId || null, input.textContent?.trim() || null, input.haircutName?.trim() || null)
     return this.byId(Number(result.lastInsertRowid))
+  }
+
+  update(homeworkId: number, userId: number, input: { haircutName?: string; textContent?: string; fileId?: string | null }) {
+    const homework = this.byId(homeworkId)
+    if (!homework) throw new NotFoundException('Домашнее задание не найдено.')
+    if (homework.student_user_id !== userId) throw new ForbiddenException('Нет доступа к этой работе.')
+    if (!['pending', 'revision'].includes(String(homework.status))) throw new BadRequestException('Изменять можно только работу на проверке или доработке.')
+    this.database.db.prepare("UPDATE homeworks SET haircut_name = COALESCE(?, haircut_name), text_content = COALESCE(?, text_content), file_id = COALESCE(?, file_id), updated_at = datetime('now') WHERE id = ?").run(input.haircutName?.trim() || null, input.textContent?.trim() || null, input.fileId || null, homeworkId)
+    return this.byId(homeworkId)
   }
 
   studentHomeworks(userId: number, includeReviewed = false) {

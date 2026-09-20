@@ -75,3 +75,4 @@ a { color: inherit; }
 .tool-form input, .tool-form select, .tool-form textarea { width: 100%; border: 1px solid #3b3528; border-radius: 12px; padding: 11px 12px; background: #080808; color: #f5f1e8; }
 .tool-form textarea { min-height: 96px; resize: vertical; }
 .upload-preview { width: 100%; max-height: 220px; border-radius: 12px; object-fit: cover; }
+.detail-photo { display: block; width: 100%; max-height: 360px; margin-bottom: 14px; border-radius: 18px; object-fit: cover; }

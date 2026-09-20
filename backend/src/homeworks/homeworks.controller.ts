@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common'
 import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator'
 import { Type } from 'class-transformer'
 import { MaxAuthGuard } from '../auth/max-auth.guard'
@@ -42,6 +42,12 @@ class RevisionDto extends MaxIdQuery {
   @IsOptional() @IsString() file_id?: string
 }
 
+class UpdateHomeworkDto extends MaxIdQuery {
+  @IsOptional() @IsString() haircut_name?: string
+  @IsOptional() @IsString() text_content?: string
+  @IsOptional() @IsString() file_id?: string
+}
+
 @Controller()
 @UseGuards(MaxAuthGuard)
 export class HomeworksController {
@@ -60,6 +66,18 @@ export class HomeworksController {
     const student = this.database.db.prepare('SELECT id FROM students WHERE user_id = ?').get(account.id) as { id: number } | undefined
     if (!student) return { ok: false, error: 'Ученик не найден.' }
     return { ok: true, data: { homework: this.homeworks.create({ studentId: student.id, lessonNumber: body.lesson_number, isBonus: body.is_bonus, contentType: body.content_type, fileId: body.file_id, textContent: body.text_content, haircutName: body.haircut_name }) } }
+  }
+
+  @Get('homeworks/:id')
+  homework(@Param('id', ParseIntPipe) id: number, @Query() query: MaxIdQuery, @CurrentMaxUser() user: MaxUser) {
+    assertMaxUserId(query.max_user_id, user)
+    return { ok: true, data: this.homeworks.details(id, this.users.requireByMaxId(user.id).id) }
+  }
+
+  @Patch('student/homeworks/:id')
+  update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateHomeworkDto, @CurrentMaxUser() user: MaxUser) {
+    assertMaxUserId(body.max_user_id, user)
+    return { ok: true, data: { homework: this.homeworks.update(id, this.users.requireByMaxId(user.id).id, { haircutName: body.haircut_name, textContent: body.text_content, fileId: body.file_id }) } }
   }
 
   @Get('teacher/students')
