@@ -30,6 +30,24 @@ API работает на `http://localhost:8787`, клиент — на `http:/
 Создайте `backend/.env` на основе `backend/.env.example`. Для локального
 интерфейса без MAX init data разрешён только development-режим.
 
+## Запуск через Docker
+
+Скопируйте `backend/.env.example` в `backend/.env`. Для локального smoke-теста
+укажите `MAX_WEBAPP_AUTH=off`; для настоящего MAX Mini App оставьте `strict` и
+задайте `MAX_BOT_TOKEN`.
+
+```bash
+docker compose up --build
+```
+
+Приложение откроется на http://localhost:8080, API будет доступен через
+прокси `/api`. SQLite хранится в Docker volume `barber_data` и переживает
+перезапуск контейнеров. Остановить контейнеры без удаления данных можно так:
+
+```bash
+docker compose down
+```
+
 ## MAX Mini App
 
 Скопируйте `backend/.env.example` в `backend/.env`, задайте `MAX_BOT_TOKEN` и

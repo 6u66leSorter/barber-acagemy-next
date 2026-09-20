@@ -1,0 +1,9 @@
+node_modules
+backend/dist
+frontend/dist
+data
+.env
+backend/.env
+.git
+.gitignore
+*.tsbuildinfo
