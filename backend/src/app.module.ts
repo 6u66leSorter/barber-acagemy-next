@@ -10,6 +10,7 @@ import { NotificationsModule } from './notifications/notifications.module'
 import { ChatModule } from './chat/chat.module'
 import { GuestModule } from './guest/guest.module'
 import { AdminModule } from './admin/admin.module'
+import { ProfileModule } from './profile/profile.module'
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AdminModule } from './admin/admin.module'
     ChatModule,
     GuestModule,
     AdminModule,
+    ProfileModule,
   ],
 })
 export class AppModule {}

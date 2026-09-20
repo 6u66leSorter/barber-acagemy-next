@@ -19,8 +19,6 @@ class RegistrationDto extends MaxIdQuery {
   @IsOptional() @IsString() first_name?: string
   @IsOptional() @IsString() last_name?: string
 }
-class AboutDto extends MaxIdQuery { @IsString() about_me!: string }
-class ProfileEditDto extends MaxIdQuery { @IsString() @MinLength(2) full_name!: string; @IsString() @MinLength(7) phone!: string; @IsOptional() @IsString() metro?: string }
 
 @Controller()
 @UseGuards(MaxAuthGuard)
@@ -33,16 +31,4 @@ export class StudentsController {
     return { ok: true, data: { student: this.students.register({ maxUserId: user.id, fullName: body.full_name, phone: body.phone, lessonsCount: body.lessons_count, metro: body.metro, username: body.username, firstName: body.first_name, lastName: body.last_name }) } }
   }
 
-  @Post('student/about')
-  updateAbout(@Body() body: AboutDto, @CurrentMaxUser() user: MaxUser) {
-    assertMaxUserId(body.max_user_id, user)
-    return { ok: true, data: { student: this.students.updateAboutByMaxId(user.id, body.about_me) } }
-  }
-
-  @Post('student/profile-edit')
-  requestProfileEdit(@Body() body: ProfileEditDto, @CurrentMaxUser() user: MaxUser) {
-    assertMaxUserId(body.max_user_id, user)
-    this.students.requestProfileEdit(user.id, { fullName: body.full_name, phone: body.phone, metro: body.metro })
-    return { ok: true }
-  }
 }
