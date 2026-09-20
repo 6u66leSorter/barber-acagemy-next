@@ -15,8 +15,46 @@ a { color: inherit; }
 .card h2 { margin: 8px 0 10px; font-size: 24px; }
 .card p { color: #b9b3a7; line-height: 1.6; }
 .button { display: inline-flex; margin-top: 14px; border-radius: 12px; padding: 11px 15px; background: #c9a227; color: #080808; text-decoration: none; font-weight: 800; }
+.button.danger { border: 0; background: #5a2926; color: #f5d0c9; cursor: pointer; }
 .state-message { padding: 40px 10px; text-align: center; color: #b9b3a7; }
 .error { color: #f19a8c; }
 .data-preview { max-height: 56vh; overflow: auto; border: 1px solid #2c281f; border-radius: 12px; padding: 12px; background: #080808; color: #d9d3c6; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+.section-heading { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+.section-heading h2 { margin: 6px 0; font-size: 28px; }
+.muted { color: #8f897d !important; font-size: 13px; }
+.count-badge { border-radius: 999px; background: #c9a227; color: #080808; padding: 8px 12px; font-weight: 800; }
+.homework-grid, .portfolio-grid { display: grid; gap: 16px; }
+.homework-card, .portfolio-card { overflow: hidden; border: 1px solid #2c281f; border-radius: 18px; background: #11100e; }
+.homework-card > img { display: block; width: 100%; max-height: 240px; object-fit: cover; }
+.homework-card-body { padding: 16px; }
+.homework-card h3, .portfolio-card h3 { margin: 10px 0 6px; font-size: 18px; }
+.card-meta { display: flex; justify-content: space-between; color: #b9b3a7; font-size: 12px; }
+.status { border-radius: 999px; padding: 4px 8px; font-weight: 700; }
+.status-pending { color: #e6c969; background: #3b3013; }
+.status-approved { color: #a7d5a6; background: #18311b; }
+.status-revision, .status-rejected { color: #f0b4a8; background: #3a1e1b; }
+.rating { color: #e6c969 !important; letter-spacing: 2px; }
+.review { border-left: 2px solid #c9a227; padding-left: 10px; font-size: 13px; }
+.text-button { margin-top: 12px; padding: 0; border: 0; background: transparent; color: #d9bd62; cursor: pointer; }
+.inline-form { display: grid; gap: 10px; margin-top: 16px; }
+.inline-form textarea { min-height: 90px; border: 1px solid #3b3528; border-radius: 12px; padding: 12px; resize: vertical; background: #11100e; color: #f5f1e8; }
+.success { color: #a7d5a6 !important; }
+.student-tabs { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 16px; padding-bottom: 4px; }
+.student-tab { min-width: 150px; border: 1px solid #3b3528; border-radius: 12px; padding: 10px; text-align: left; background: #11100e; color: #d9d3c6; cursor: pointer; }
+.student-tab.active { border-color: #c9a227; background: #2a2314; }
+.student-tab small { display: block; margin-top: 4px; color: #8f897d; }
+.action-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
+.stat-card { border: 1px solid #2c281f; border-radius: 14px; padding: 14px; background: #11100e; }
+.stat-card strong { display: block; color: #e6c969; font-size: 26px; }
+.stat-card span { color: #8f897d; font-size: 12px; }
+.portfolio-heading { display: flex; gap: 12px; padding: 16px; }
+.portfolio-heading p { margin: 0; }
+.avatar-placeholder { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border-radius: 50%; background: #c9a227; color: #080808; font-size: 20px; font-weight: 800; }
+.portfolio-works { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 0 12px 12px; }
+.portfolio-work { overflow: hidden; border-radius: 12px; background: #191714; }
+.portfolio-work img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+.portfolio-work strong, .portfolio-work span, .portfolio-work p { display: block; padding: 4px 8px 0; font-size: 12px; }
+.portfolio-work span { color: #8f897d; padding-bottom: 8px; }
 .bottom-nav { position: fixed; right: 0; bottom: 0; left: 0; display: flex; justify-content: center; gap: 28px; padding: 16px; border-top: 1px solid #2c281f; background: #0b0b0bf2; }
 .bottom-nav a { color: #b9b3a7; font-size: 13px; text-decoration: none; }

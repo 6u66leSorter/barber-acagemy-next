@@ -32,7 +32,7 @@ export class HomeworksService {
     const student = this.database.db.prepare('SELECT id FROM students WHERE user_id = ?').get(userId) as { id: number } | undefined
     if (!student) throw new NotFoundException('Ученик не найден.')
     const statusClause = includeReviewed ? '' : "AND h.status = 'pending'"
-    return this.database.db.prepare(`SELECT h.*, (SELECT COUNT(*) FROM homework_reviews hr WHERE hr.homework_id = h.id) AS review_count, (SELECT COUNT(*) FROM homework_files hf WHERE hf.homework_id = h.id) AS extra_files_count FROM homeworks h WHERE h.student_id = ? ${statusClause} ORDER BY CASE WHEN h.status = 'pending' THEN 0 ELSE 1 END, h.created_at DESC`).all(student.id)
+    return this.database.db.prepare(`SELECT h.*, (SELECT COUNT(*) FROM homework_reviews hr WHERE hr.homework_id = h.id) AS review_count, (SELECT COUNT(*) FROM homework_files hf WHERE hf.homework_id = h.id) AS extra_files_count, (SELECT hr.rating FROM homework_reviews hr WHERE hr.homework_id = h.id ORDER BY hr.id DESC LIMIT 1) AS rating, (SELECT hr.comment FROM homework_reviews hr WHERE hr.homework_id = h.id ORDER BY hr.id DESC LIMIT 1) AS comment FROM homeworks h WHERE h.student_id = ? ${statusClause} ORDER BY CASE WHEN h.status = 'pending' THEN 0 ELSE 1 END, h.created_at DESC`).all(student.id)
   }
 
   teacherStudents(teacherId: number) {
@@ -43,7 +43,7 @@ export class HomeworksService {
     const access = this.database.db.prepare('SELECT 1 FROM student_teachers WHERE teacher_id = ? AND student_id = ?').get(teacherId, studentId)
     if (!access) throw new ForbiddenException('Ученик не закреплён за преподавателем.')
     const statusClause = includeReviewed ? '' : "AND h.status = 'pending'"
-    return this.database.db.prepare(`SELECT h.*, s.full_name AS student_name, s.user_id AS student_user_id FROM homeworks h JOIN students s ON s.id = h.student_id WHERE h.student_id = ? ${statusClause} ORDER BY h.created_at DESC`).all(studentId)
+    return this.database.db.prepare(`SELECT h.*, s.full_name AS student_name, s.user_id AS student_user_id, (SELECT hr.rating FROM homework_reviews hr WHERE hr.homework_id = h.id ORDER BY hr.id DESC LIMIT 1) AS rating, (SELECT hr.comment FROM homework_reviews hr WHERE hr.homework_id = h.id ORDER BY hr.id DESC LIMIT 1) AS comment FROM homeworks h JOIN students s ON s.id = h.student_id WHERE h.student_id = ? ${statusClause} ORDER BY h.created_at DESC`).all(studentId)
   }
 
   review(input: { homeworkId: number; teacherId: number; rating?: number | null; comment?: string | null; status: 'approved' | 'rejected' }) {
