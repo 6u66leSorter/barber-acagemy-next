@@ -1,13 +1,14 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 import { UsersService } from '../users/users.service'
+import { NotificationsService } from '../notifications/notifications.service'
 
 export type HomeworkStatus = 'pending' | 'approved' | 'rejected' | 'revision'
 export type HomeworkContentType = 'photo' | 'video' | 'text' | 'document'
 
 @Injectable()
 export class HomeworksService {
-  constructor(private readonly database: DatabaseService, private readonly users: UsersService) {}
+  constructor(private readonly database: DatabaseService, private readonly users: UsersService, private readonly notifications: NotificationsService) {}
 
   byId(id: number) {
     return this.database.db.prepare(`SELECT h.*, s.full_name AS student_name, s.user_id AS student_user_id, u.max_user_id AS student_max_user_id FROM homeworks h JOIN students s ON h.student_id = s.id JOIN users u ON s.user_id = u.id WHERE h.id = ?`).get(id) as Record<string, unknown> | undefined
@@ -35,7 +36,10 @@ export class HomeworksService {
     const duplicate = this.database.db.prepare(`SELECT id FROM homeworks WHERE student_id = ? AND status = 'pending' AND is_bonus = ? AND lesson_number IS ? LIMIT 1`).get(input.studentId, input.isBonus ? 1 : 0, input.isBonus ? null : input.lessonNumber ?? null)
     if (duplicate) throw new BadRequestException('Работа с таким уроком уже ожидает проверки.')
     const result = this.database.db.prepare(`INSERT INTO homeworks (student_id, lesson_number, is_bonus, content_type, file_id, text_content, status, haircut_name) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`).run(input.studentId, input.lessonNumber ?? null, input.isBonus ? 1 : 0, input.contentType, input.fileId || null, input.textContent?.trim() || null, input.haircutName?.trim() || null)
-    return this.byId(Number(result.lastInsertRowid))
+    const homework = this.byId(Number(result.lastInsertRowid))
+    const teachers = this.database.db.prepare('SELECT t.user_id FROM student_teachers st JOIN teachers t ON t.id = st.teacher_id WHERE st.student_id = ?').all(input.studentId) as Array<{ user_id: number }>
+    teachers.forEach((teacher) => this.notifications.create(teacher.user_id, 'homework_submitted', `Новая работа «${input.haircutName || 'Без названия'}» ожидает проверки.`, { homework_id: homework?.id }))
+    return homework
   }
 
   update(homeworkId: number, userId: number, input: { haircutName?: string; textContent?: string; fileId?: string | null }) {
@@ -76,6 +80,9 @@ export class HomeworksService {
       const result = this.database.db.prepare('INSERT INTO homework_reviews (homework_id, teacher_id, rating, comment, status) VALUES (?, ?, ?, ?, ?)').run(input.homeworkId, input.teacherId, input.rating ?? null, input.comment?.trim() || null, input.status)
       const nextStatus: HomeworkStatus = input.status === 'approved' ? 'approved' : 'revision'
       this.database.db.prepare("UPDATE homeworks SET status = ?, updated_at = datetime('now') WHERE id = ?").run(nextStatus, input.homeworkId)
+      const studentUserId = Number(homework.student_user_id)
+      const verb = input.status === 'approved' ? 'одобрена' : 'отправлена на доработку'
+      this.notifications.create(studentUserId, 'homework_reviewed', `Работа «${String(homework.haircut_name || 'Домашнее задание')}» ${verb}.`, { homework_id: input.homeworkId })
       return Number(result.lastInsertRowid)
     })
   }
@@ -90,6 +97,11 @@ export class HomeworksService {
     const value = text.trim()
     if (!value) throw new BadRequestException('Комментарий не может быть пустым.')
     const result = this.database.db.prepare('INSERT INTO homework_comments (homework_id, author_user_id, text_content) VALUES (?, ?, ?)').run(homeworkId, authorUserId, value.slice(0, 4000))
+    const studentUserId = Number(homework.student_user_id)
+    if (authorUserId === studentUserId) {
+      const teacherUsers = this.database.db.prepare('SELECT t.user_id FROM student_teachers st JOIN teachers t ON t.id = st.teacher_id WHERE st.student_id = ?').all(studentId) as Array<{ user_id: number }>
+      teacherUsers.forEach((teacher) => this.notifications.create(teacher.user_id, 'homework_comment', 'Ученик оставил комментарий к домашней работе.', { homework_id: homeworkId }))
+    } else this.notifications.create(studentUserId, 'homework_comment', 'Преподаватель оставил комментарий к домашней работе.', { homework_id: homeworkId })
     return Number(result.lastInsertRowid)
   }
 
@@ -101,5 +113,7 @@ export class HomeworksService {
     const value = text.trim()
     if (!value) throw new BadRequestException('Опишите выполненную доработку.')
     this.database.db.prepare("UPDATE homeworks SET revision_student_text = ?, revision_student_file_id = COALESCE(?, revision_student_file_id), status = 'pending', updated_at = datetime('now') WHERE id = ?").run(value, fileId || null, homeworkId)
+    const teachers = this.database.db.prepare('SELECT t.user_id FROM student_teachers st JOIN teachers t ON t.id = st.teacher_id WHERE st.student_id = ?').all(Number(homework.student_id)) as Array<{ user_id: number }>
+    teachers.forEach((teacher) => this.notifications.create(teacher.user_id, 'homework_resubmitted', 'Ученик отправил доработанную работу на повторную проверку.', { homework_id: homeworkId }))
   }
 }

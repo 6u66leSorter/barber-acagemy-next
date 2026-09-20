@@ -13,4 +13,8 @@ export class NotificationsService {
     if (notificationId) this.database.db.prepare('UPDATE app_notifications SET read_at = COALESCE(read_at, datetime(\'now\')) WHERE id = ? AND user_id = ?').run(notificationId, userId)
     else this.database.db.prepare('UPDATE app_notifications SET read_at = COALESCE(read_at, datetime(\'now\')) WHERE user_id = ?').run(userId)
   }
+
+  create(userId: number, kind: string, body: string, payload?: Record<string, unknown>) {
+    this.database.db.prepare('INSERT INTO app_notifications (user_id, kind, body, payload) VALUES (?, ?, ?, ?)').run(userId, kind, body.slice(0, 1000), payload ? JSON.stringify(payload) : null)
+  }
 }
