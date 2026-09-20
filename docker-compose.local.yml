@@ -1,0 +1,7 @@
+# Подключается только для локальной проверки. Не используйте при публикации.
+services:
+  api:
+    environment:
+      NODE_ENV: development
+      MAX_WEBAPP_AUTH: off
+      DEV_MAX_USER_ID: 1000000001

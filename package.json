@@ -9,7 +9,8 @@
     "lint": "npm run lint -w backend && npm run lint -w frontend",
     "test": "npm run test -w backend",
     "start": "npm run start:prod -w backend",
-    "max:check-token": "node backend/scripts/check-max-token.mjs"
+    "max:check-token": "node backend/scripts/check-max-token.mjs",
+    "db:seed-demo": "node backend/scripts/seed-demo.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
