@@ -1,6 +1,7 @@
 # Подключается только для локальной проверки. Не используйте при публикации.
 services:
   api:
+    image: barber-academy-next-api:local
     environment:
       NODE_ENV: development
       MAX_WEBAPP_AUTH: off
@@ -9,3 +10,14 @@ services:
     build:
       args:
         VITE_DEMO_MODE: "true"
+  seed:
+    image: barber-academy-next-api:local
+    environment:
+      DATABASE_PATH: /app/data/barber.db
+    volumes:
+      - barber_data:/app/data
+    depends_on:
+      api:
+        condition: service_healthy
+    command: ["node", "backend/scripts/seed-demo.mjs"]
+    restart: "no"

@@ -31,10 +31,10 @@ Docker-проверка ниже воспроизводит локальную �
 
 ## Быстрый запуск через Docker
 
-Требуется Docker Desktop 4+ с Docker Compose v2. Локальный режим без настоящего MAX-токена запускается одной командой:
+Требуется Docker Desktop 4+ с Docker Compose v2. На macOS локальный режим без настоящего MAX-токена запускается одной командой: она откроет Docker Desktop при необходимости, дождётся готовности и подготовит демо-данные.
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+npm run demo:docker
 ```
 
 После сборки откройте http://localhost:8080. Внутри контейнеров запускаются все необходимые компоненты: Nest API, SQLite и Nginx с React-сборкой.
@@ -85,7 +85,7 @@ docker compose up --build
 
 В production SQLite хранится в Docker volume `barber_data`; его не следует удалять при обычной остановке контейнеров. В базе могут находиться персональные данные, поэтому файл БД, вложения, резервные копии и `.env` исключены из Git.
 
-После запуска локального режима подготовьте обезличенные тестовые данные:
+`npm run demo:docker` подготовит обезличенные тестовые данные автоматически. Если контейнеры уже были запущены вручную, их можно добавить отдельной командой:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.local.yml exec api node backend/scripts/seed-demo.mjs

@@ -10,7 +10,8 @@
     "test": "npm run test -w backend",
     "start": "npm run start:prod -w backend",
     "max:check-token": "node backend/scripts/check-max-token.mjs",
-    "db:seed-demo": "node backend/scripts/seed-demo.mjs"
+    "db:seed-demo": "node backend/scripts/seed-demo.mjs",
+    "demo:docker": "bash scripts/start-local-demo.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

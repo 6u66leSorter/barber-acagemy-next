@@ -17,6 +17,12 @@ services:
       - barber_data:/app/data
     expose:
       - "8787"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8787/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
     restart: unless-stopped
 
   web:
