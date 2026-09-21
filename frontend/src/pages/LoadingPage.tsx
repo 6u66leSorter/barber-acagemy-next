@@ -1,3 +1,5 @@
+import { PageState } from '../components/UiState'
+
 export function LoadingPage() {
-  return <p className="state-message">Загрузка…</p>
+  return <PageState>Загрузка…</PageState>
 }
