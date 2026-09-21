@@ -12,7 +12,7 @@ export class HomeworksService {
   constructor(private readonly database: DatabaseService, private readonly users: UsersService, private readonly notifications: NotificationsService, private readonly files: FilesService) {}
 
   byId(id: number) {
-    return this.database.db.prepare(`SELECT h.*, s.full_name AS student_name, s.user_id AS student_user_id, u.max_user_id AS student_max_user_id FROM homeworks h JOIN students s ON h.student_id = s.id JOIN users u ON s.user_id = u.id WHERE h.id = ?`).get(id) as Record<string, unknown> | undefined
+    return this.database.db.prepare(`SELECT h.*, s.full_name AS student_name, s.user_id AS student_user_id FROM homeworks h JOIN students s ON h.student_id = s.id WHERE h.id = ?`).get(id) as Record<string, unknown> | undefined
   }
 
   details(homeworkId: number, userId: number) {
@@ -30,10 +30,22 @@ export class HomeworksService {
   }
 
   comments(homeworkId: number) {
-    return this.database.db.prepare(`SELECT hc.*, u.first_name, u.last_name, u.username, CASE WHEN EXISTS (SELECT 1 FROM teachers t WHERE t.user_id = u.id) THEN 'teacher' WHEN EXISTS (SELECT 1 FROM students s WHERE s.user_id = u.id) THEN 'student' ELSE 'admin' END AS author_role FROM homework_comments hc JOIN users u ON u.id = hc.author_user_id WHERE hc.homework_id = ? ORDER BY hc.id ASC`).all(homeworkId)
+    return this.database.db.prepare(`
+      SELECT hc.id, hc.homework_id, hc.author_user_id, hc.text_content, hc.created_at,
+             COALESCE(t.full_name, s.full_name, NULLIF(TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')), ''), 'Администратор') AS author_name,
+             CASE WHEN t.id IS NOT NULL THEN 'teacher' WHEN s.id IS NOT NULL THEN 'student' ELSE 'admin' END AS author_role
+      FROM homework_comments hc
+      JOIN users u ON u.id = hc.author_user_id
+      LEFT JOIN teachers t ON t.user_id = u.id
+      LEFT JOIN students s ON s.user_id = u.id
+      WHERE hc.homework_id = ? ORDER BY hc.id ASC
+    `).all(homeworkId)
   }
 
   create(input: { studentId: number; ownerUserId: number; lessonNumber?: number | null; isBonus?: boolean; contentType: HomeworkContentType; fileId?: string | null; textContent?: string | null; haircutName?: string | null }) {
+    const student = this.database.db.prepare('SELECT status FROM students WHERE id = ? AND user_id = ?').get(input.studentId, input.ownerUserId) as { status: string } | undefined
+    if (!student) throw new ForbiddenException('Нет доступа к этому профилю.')
+    if (student.status !== 'studying') throw new BadRequestException('Отправка работ доступна после одобрения заявки и во время обучения.')
     const duplicate = this.database.db.prepare(`SELECT id FROM homeworks WHERE student_id = ? AND status = 'pending' AND is_bonus = ? AND lesson_number IS ? LIMIT 1`).get(input.studentId, input.isBonus ? 1 : 0, input.isBonus ? null : input.lessonNumber ?? null)
     if (duplicate) throw new BadRequestException('Работа с таким уроком уже ожидает проверки.')
     if (input.fileId) this.files.assertOwned(input.fileId, input.ownerUserId, ['homework'])
@@ -87,6 +99,7 @@ export class HomeworksService {
     const studentId = Number(homework.student_id)
     const assigned = this.database.db.prepare('SELECT 1 FROM student_teachers WHERE teacher_id = ? AND student_id = ?').get(input.teacherId, studentId)
     if (!assigned) throw new ForbiddenException('Нет доступа к этому ученику.')
+    if (homework.status !== 'pending') throw new BadRequestException('Работа уже проверена или ожидает доработки.')
     if (input.rating != null && (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5)) throw new BadRequestException('Оценка должна быть от 1 до 5.')
     return this.database.transaction(() => {
       const result = this.database.db.prepare('INSERT INTO homework_reviews (homework_id, teacher_id, rating, comment, status) VALUES (?, ?, ?, ?, ?)').run(input.homeworkId, input.teacherId, input.rating ?? null, input.comment?.trim() || null, input.status)

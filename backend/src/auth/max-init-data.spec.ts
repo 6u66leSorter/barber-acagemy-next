@@ -27,4 +27,15 @@ describe('MAX init data validation', () => {
     const raw = `${signedData(token, 123, now - 10)}&user=${encodeURIComponent(JSON.stringify({ id: 999 }))}`
     expect(parseAndValidateMaxInitData(raw, token, now)).toBeNull()
   })
+
+  it('rejects any duplicated launch parameter to avoid ambiguous parsing', () => {
+    const raw = signedData(token, 123, now - 10, [['query_id', 'first'], ['query_id', 'second']])
+    expect(parseAndValidateMaxInitData(raw, token, now)).toBeNull()
+  })
+
+  it('rejects future, malformed and unsafe user ids', () => {
+    expect(parseAndValidateMaxInitData(signedData(token, 123, now + 120), token, now)).toBeNull()
+    expect(parseAndValidateMaxInitData(signedData(token, Number.MAX_SAFE_INTEGER + 1, now - 1), token, now)).toBeNull()
+    expect(parseAndValidateMaxInitData('auth_date=broken&user=%7B%7D&hash=00', token, now)).toBeNull()
+  })
 })

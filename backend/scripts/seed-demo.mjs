@@ -1,8 +1,12 @@
 import Database from 'better-sqlite3'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const databasePath = resolve(process.cwd(), process.env.DATABASE_PATH || './data/barber.db')
+const uploadDir = resolve(process.cwd(), process.env.UPLOAD_DIR || './data/uploads')
+mkdirSync(uploadDir, { recursive: true })
 const database = new Database(databasePath)
+database.pragma('foreign_keys = ON')
 
 try {
   const requiredTable = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'").get()
@@ -21,13 +25,19 @@ try {
     addUser.run(1000000003, 'demo_admin', 'Демо', 'Администратор', 'admin')
     addUser.run(1000000011, 'demo_student_two', 'Анна', 'Модель', 'student')
     addUser.run(1000000012, 'demo_student_three', 'Илья', 'Барбер', 'student')
+    addUser.run(1000000090, 'demo_guest', 'Демо', 'Гость', 'guest')
+    addUser.run(1000000091, 'demo_teacher_candidate', 'Мария', 'Кандидат', 'guest')
 
     const studentUserIds = [1000000001, 1000000011, 1000000012].map((id) => findUser.get(id).id)
     const teacherUserId = findUser.get(1000000002).id
     const adminUserId = findUser.get(1000000003).id
+    const guestUserId = findUser.get(1000000090).id
+    const candidateUserId = findUser.get(1000000091).id
     studentUserIds.forEach((id) => addRole.run(id, 'student'))
     addRole.run(teacherUserId, 'teacher')
     addRole.run(adminUserId, 'admin')
+    addRole.run(guestUserId, 'guest')
+    addRole.run(candidateUserId, 'guest')
 
     const studentProfiles = [
       [studentUserIds[0], 'Демо Ученик', '+7 900 000-00-01', 10, 'Тестовая станция', 'Отрабатываю базовые мужские стрижки и форму бороды.'],
@@ -41,6 +51,13 @@ try {
     const teacherId = findTeacher.get(teacherUserId).id
     const studentIds = studentUserIds.map((id) => findStudent.get(id).id)
     studentIds.forEach((studentId) => database.prepare('INSERT OR IGNORE INTO student_teachers (student_id, teacher_id) VALUES (?, ?)').run(studentId, teacherId))
+
+    const storedFileId = '00000000-0000-4000-8000-000000000001'
+    const storageName = `${storedFileId}.png`
+    const storedPath = resolve(uploadDir, storageName)
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZlXcAAAAASUVORK5CYII=', 'base64')
+    if (!existsSync(storedPath)) writeFileSync(storedPath, png, { flag: 'wx', mode: 0o600 })
+    database.prepare("INSERT OR IGNORE INTO stored_files (id, owner_user_id, purpose, storage_name, original_name, mime_type, byte_size) VALUES (?, ?, 'homework', ?, 'demo-revision.png', 'image/png', ?)").run(storedFileId, studentUserIds[0], storageName, png.length)
 
     const works = [
       [studentIds[0], 1, 'Демо-стрижка crop', 'demo-homework-crop.png', 'Текстурированный crop: проверка направления волос и чистоты окантовки.', 'approved', 5, 'Сильная форма и хороший контроль текстуры.'],
@@ -61,8 +78,27 @@ try {
       if (status === 'approved' && !database.prepare('SELECT id FROM homework_comments WHERE homework_id = ?').get(homeworkId)) addComment.run(homeworkId, teacherUserId, review)
     })
 
+    const revisionTitle = 'Работа на доработке'
+    const revisionExisting = findHomework.get(studentIds[0], revisionTitle)
+    const revisionId = revisionExisting?.id || Number(addHomework.run(studentIds[0], 4, storedFileId, 'Первая версия работы.', 'revision', revisionTitle).lastInsertRowid)
+    database.prepare("UPDATE homeworks SET status = 'revision', file_id = ? WHERE id = ?").run(storedFileId, revisionId)
+    if (!database.prepare('SELECT id FROM homework_reviews WHERE homework_id = ? AND teacher_id = ?').get(revisionId, teacherId)) {
+      database.prepare("INSERT INTO homework_reviews (homework_id, teacher_id, rating, comment, status) VALUES (?, ?, NULL, 'Смягчите переход и пришлите новое фото.', 'rejected')").run(revisionId, teacherId)
+    }
+
     const addNotification = database.prepare("INSERT INTO app_notifications (user_id, kind, body) SELECT ?, 'demo', ? WHERE NOT EXISTS (SELECT 1 FROM app_notifications WHERE user_id = ? AND body = ?)")
     studentUserIds.forEach((id) => addNotification.run(id, 'Проверяйте новые комментарии к вашим работам.', id, 'Проверяйте новые комментарии к вашим работам.'))
+
+    const chatMessages = [
+      [studentIds[0], studentUserIds[0], 'На что обратить внимание в доработке?'],
+      [studentIds[0], teacherUserId, 'Смягчите переход и проверьте окантовку.'],
+    ]
+    chatMessages.forEach(([studentId, senderId, text]) => database.prepare("INSERT INTO chat_messages (student_id, sender_user_id, text_content, content_type) SELECT ?, ?, ?, 'text' WHERE NOT EXISTS (SELECT 1 FROM chat_messages WHERE student_id = ? AND sender_user_id = ? AND text_content = ?)").run(studentId, senderId, text, studentId, senderId, text))
+    database.prepare("INSERT INTO teacher_applications (applicant_user_id, full_name, phone) SELECT ?, 'Мария Кандидат', '+7 900 000-00-91' WHERE NOT EXISTS (SELECT 1 FROM teacher_applications WHERE applicant_user_id = ? AND status = 'pending')").run(candidateUserId, candidateUserId)
+    database.prepare("INSERT INTO student_profile_edits (student_id, new_full_name, new_phone, new_metro) SELECT ?, 'Демо Ученик Обновлённый', '+7 900 000-10-01', 'Спортивная' WHERE NOT EXISTS (SELECT 1 FROM student_profile_edits WHERE student_id = ? AND status = 'pending')").run(studentIds[0], studentIds[0])
+    database.prepare("INSERT OR IGNORE INTO private_feedback (student_id, request_key, subject, message) VALUES (?, 'demo:academy', 'academy', 'Демо-отзыв о работе академии.')").run(studentIds[0])
+    database.prepare('INSERT OR IGNORE INTO feedback_milestones (student_id, milestone) VALUES (?, 5)').run(studentIds[0])
+    database.prepare("INSERT INTO audit_log (actor_user_id, action, meta) SELECT ?, 'demo_seed_ready', '{\"source\":\"seed-demo\"}' WHERE NOT EXISTS (SELECT 1 FROM audit_log WHERE actor_user_id = ? AND action = 'demo_seed_ready')").run(adminUserId, adminUserId)
   })
 
   seed()

@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
-import { createReadStream, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { createReadStream, existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { basename, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { DatabaseService } from '../database/database.service'
@@ -46,8 +46,10 @@ export class FilesService {
 
   store(userId: number, purpose: StoredFilePurpose, file?: UploadedFileData) {
     if (!file?.buffer?.length) throw new BadRequestException('Файл не передан.')
-    const maxBytes = Math.min(50, Math.max(1, Number(process.env.MAX_HOMEWORK_UPLOAD_MB || 50))) * 1024 * 1024
-    if (file.size > maxBytes) throw new BadRequestException('Файл превышает допустимый размер.')
+    const configuredLimit = Number(process.env.MAX_HOMEWORK_UPLOAD_MB || 50)
+    const maxMegabytes = Number.isFinite(configuredLimit) && configuredLimit > 0 ? Math.min(50, configuredLimit) : 50
+    const maxBytes = maxMegabytes * 1024 * 1024
+    if (!Number.isSafeInteger(file.size) || file.size !== file.buffer.length || file.size > maxBytes) throw new BadRequestException('Файл превышает допустимый размер или повреждён.')
     const extension = MIME_EXTENSIONS[file.mimetype]
     if (!extension) throw new BadRequestException('Поддерживаются JPEG, PNG, WebP, MP4, MOV и PDF.')
     if (!matchesSignature(file.mimetype, file.buffer)) throw new BadRequestException('Содержимое файла не соответствует заявленному типу.')
@@ -55,17 +57,38 @@ export class FilesService {
 
     const id = randomUUID()
     const storageName = `${id}${extension}`
-    writeFileSync(resolve(this.uploadDir, storageName), file.buffer, { flag: 'wx', mode: 0o600 })
-    this.database.db.prepare('INSERT INTO stored_files (id, owner_user_id, purpose, storage_name, original_name, mime_type, byte_size) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-      id,
-      userId,
-      purpose,
-      storageName,
-      basename(file.originalname || `upload${extension}`).slice(0, 255),
-      file.mimetype,
-      file.size,
-    )
+    const diskPath = resolve(this.uploadDir, storageName)
+    writeFileSync(diskPath, file.buffer, { flag: 'wx', mode: 0o600 })
+    try {
+      this.database.db.prepare('INSERT INTO stored_files (id, owner_user_id, purpose, storage_name, original_name, mime_type, byte_size) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+        id,
+        userId,
+        purpose,
+        storageName,
+        basename(file.originalname || `upload${extension}`).slice(0, 255),
+        file.mimetype,
+        file.size,
+      )
+    } catch (error) {
+      try { unlinkSync(diskPath) } catch { /* best-effort rollback */ }
+      throw error
+    }
     return this.require(id)
+  }
+
+  discardIfUnreferenced(id: string, ownerUserId: number) {
+    const row = this.database.db.prepare('SELECT * FROM stored_files WHERE id = ? AND owner_user_id = ?').get(id, ownerUserId) as StoredFile | undefined
+    if (!row) return false
+    const referenced = this.database.db.prepare(`
+      SELECT 1 FROM homeworks WHERE file_id = ? OR revision_student_file_id = ?
+      UNION ALL SELECT 1 FROM homework_files WHERE file_id = ?
+      UNION ALL SELECT 1 FROM students WHERE avatar_file_id = ?
+      LIMIT 1
+    `).get(id, id, id, id)
+    if (referenced) return false
+    this.database.db.prepare('DELETE FROM stored_files WHERE id = ? AND owner_user_id = ?').run(id, ownerUserId)
+    try { unlinkSync(resolve(this.uploadDir, basename(row.storage_name))) } catch { /* already missing */ }
+    return true
   }
 
   require(id: string) {

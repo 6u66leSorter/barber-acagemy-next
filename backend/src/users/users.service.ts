@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { DatabaseService } from '../database/database.service'
 
 export type UserRole = 'guest' | 'student' | 'teacher' | 'admin'
@@ -36,6 +36,18 @@ export class UsersService {
 
   hasRole(userId: number, role: UserRole) {
     return this.rolesForUser(userId).includes(role)
+  }
+
+  requireRole(userId: number, role: UserRole) {
+    const user = this.findById(userId)
+    if (!user) throw new NotFoundException('Пользователь не найден.')
+    if (!this.hasRole(userId, role)) throw new ForbiddenException('Недостаточно прав для этого действия.')
+    return user
+  }
+
+  requireRoleByMaxId(maxUserId: number, role: UserRole) {
+    const user = this.requireByMaxId(maxUserId)
+    return this.requireRole(user.id, role)
   }
 
   addRole(userId: number, role: UserRole) {
@@ -76,7 +88,7 @@ export class UsersService {
   sessionFor(maxUserId: number) {
     const user = this.findByMaxId(maxUserId)
     const roles = user ? this.rolesForUser(user.id) : []
-    const studentRow = user
+    const studentRow = user && roles.includes('student')
       ? this.database.db.prepare(`SELECT s.*, u.max_user_id, u.username, u.first_name, u.last_name FROM students s JOIN users u ON s.user_id = u.id WHERE s.user_id = ?`).get(user.id)
       : null
     const student = studentRow as Record<string, unknown> | null
@@ -87,12 +99,14 @@ export class UsersService {
       student.has_avatar = Boolean(student.avatar_file_id)
       student.teachers = this.database.db.prepare('SELECT t.id, t.full_name FROM teachers t JOIN student_teachers st ON st.teacher_id = t.id WHERE st.student_id = ? ORDER BY t.full_name').all(student.id)
     }
-    const teacher = user
+    const teacher = user && roles.includes('teacher')
       ? this.database.db.prepare(`SELECT t.*, u.max_user_id, u.username, u.first_name, u.last_name FROM teachers t JOIN users u ON t.user_id = u.id WHERE t.user_id = ?`).get(user.id)
       : null
     const isAdmin = roles.includes('admin')
     const isTeacher = roles.includes('teacher')
     const isStudent = Boolean(student)
+    const retentionValue = Number(process.env.APP_NOTIFICATIONS_RETENTION_DAYS || 90)
+    const retentionDays = Number.isInteger(retentionValue) && retentionValue > 0 ? Math.min(retentionValue, 3650) : 90
     return {
       hasUser: isAdmin || isTeacher || isStudent,
       role: isAdmin ? 'admin' : isTeacher ? 'teacher' : isStudent ? 'student' : null,
@@ -104,7 +118,7 @@ export class UsersService {
       student,
       teacher,
       unread_notifications_count: user
-        ? Number((this.database.db.prepare('SELECT COUNT(*) AS count FROM app_notifications WHERE user_id = ? AND read_at IS NULL').get(user.id) as { count?: number } | undefined)?.count || 0)
+        ? Number((this.database.db.prepare("SELECT COUNT(*) AS count FROM app_notifications WHERE user_id = ? AND read_at IS NULL AND created_at >= datetime('now', ?)").get(user.id, `-${retentionDays} days`) as { count?: number } | undefined)?.count || 0)
         : 0,
     }
   }

@@ -15,9 +15,6 @@ class RegistrationDto extends MaxIdQuery {
   @IsString() @MinLength(7) phone!: string
   @Type(() => Number) @IsInt() @IsPositive() lessons_count!: number
   @IsOptional() @IsString() metro?: string
-  @IsOptional() @IsString() username?: string
-  @IsOptional() @IsString() first_name?: string
-  @IsOptional() @IsString() last_name?: string
 }
 
 @Controller()
@@ -28,7 +25,7 @@ export class StudentsController {
   @Post('students')
   register(@Body() body: RegistrationDto, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(body.max_user_id, user)
-    return { ok: true, data: { student: this.students.register({ maxUserId: user.id, fullName: body.full_name, phone: body.phone, lessonsCount: body.lessons_count, metro: body.metro, username: body.username, firstName: body.first_name, lastName: body.last_name }) } }
+    return { ok: true, data: { student: this.students.register({ maxUserId: user.id, fullName: body.full_name, phone: body.phone, lessonsCount: body.lessons_count, metro: body.metro, username: user.username, firstName: user.first_name, lastName: user.last_name }) } }
   }
 
 }

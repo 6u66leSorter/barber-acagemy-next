@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common'
+import { ForbiddenException, ServiceUnavailableException } from '@nestjs/common'
 import Database from 'better-sqlite3'
 import { ChatService } from '../src/chat/chat.service'
 import { DatabaseService } from '../src/database/database.service'
@@ -61,6 +61,8 @@ describe('ChatService access control', () => {
 
   afterEach(() => sqlite.close())
 
+  afterEach(() => delete process.env.CHAT_ENABLED)
+
   it('returns only assigned students to a teacher without personal MAX data', () => {
     const peers = service.peers(2) as Array<Record<string, unknown>>
 
@@ -105,5 +107,13 @@ describe('ChatService access control', () => {
   it('allows an admin to access student threads but not arbitrary users', () => {
     expect(service.messages(1, 3)).toHaveLength(1)
     expect(() => service.messages(1, 2)).toThrow(ForbiddenException)
+  })
+
+  it('disables listing, reading and sending when CHAT_ENABLED=false', () => {
+    process.env.CHAT_ENABLED = 'false'
+
+    expect(() => service.peers(3)).toThrow(ServiceUnavailableException)
+    expect(() => service.messages(3, 2)).toThrow(ServiceUnavailableException)
+    expect(() => service.send(3, 2, 'Сообщение')).toThrow(ServiceUnavailableException)
   })
 })

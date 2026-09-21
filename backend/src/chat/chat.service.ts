@@ -41,7 +41,7 @@ export class ChatService {
         WHERE s.user_id = ? ORDER BY t.full_name
       `).all(userId)
     }
-    return []
+    throw new ForbiddenException('Чат доступен только учебным ролям и администратору.')
   }
 
   messages(userId: number, peerUserId: number) {

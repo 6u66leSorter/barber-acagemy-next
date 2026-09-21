@@ -17,6 +17,8 @@ export function parseAndValidateMaxInitData(raw: string, botToken: string, now =
 
   try {
     const params = new URLSearchParams(raw)
+    const keys = [...params.keys()]
+    if (new Set(keys).size !== keys.length) return null
     const hashes = params.getAll('hash')
     const users = params.getAll('user')
     const dates = params.getAll('auth_date')

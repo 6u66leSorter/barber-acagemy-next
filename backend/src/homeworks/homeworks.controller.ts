@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, ForbiddenException, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common'
 import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator'
 import { Type } from 'class-transformer'
 import { MaxAuthGuard } from '../auth/max-auth.guard'
@@ -56,15 +56,15 @@ export class HomeworksController {
   @Get('student/homeworks')
   studentHomeworks(@Query() query: MaxIdQuery, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(query.max_user_id, user)
-    return { ok: true, data: { homeworks: this.homeworks.studentHomeworks(this.users.requireByMaxId(user.id).id, true) } }
+    return { ok: true, data: { homeworks: this.homeworks.studentHomeworks(this.users.requireRoleByMaxId(user.id, 'student').id, true) } }
   }
 
   @Post('homeworks')
   create(@Body() body: CreateHomeworkDto, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(body.max_user_id, user)
-    const account = this.users.requireByMaxId(user.id)
+    const account = this.users.requireRoleByMaxId(user.id, 'student')
     const student = this.database.db.prepare('SELECT id FROM students WHERE user_id = ?').get(account.id) as { id: number } | undefined
-    if (!student) return { ok: false, error: 'Ученик не найден.' }
+    if (!student) throw new ForbiddenException('Профиль ученика не найден.')
     return { ok: true, data: { homework: this.homeworks.create({ studentId: student.id, ownerUserId: account.id, lessonNumber: body.lesson_number, isBonus: body.is_bonus, contentType: body.content_type, fileId: body.file_id, textContent: body.text_content, haircutName: body.haircut_name }) } }
   }
 
@@ -77,40 +77,42 @@ export class HomeworksController {
   @Patch('student/homeworks/:id')
   update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateHomeworkDto, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(body.max_user_id, user)
-    return { ok: true, data: { homework: this.homeworks.update(id, this.users.requireByMaxId(user.id).id, { haircutName: body.haircut_name, textContent: body.text_content, fileId: body.file_id }) } }
+    return { ok: true, data: { homework: this.homeworks.update(id, this.users.requireRoleByMaxId(user.id, 'student').id, { haircutName: body.haircut_name, textContent: body.text_content, fileId: body.file_id }) } }
   }
 
   @Get('teacher/students')
   teacherStudents(@Query() query: MaxIdQuery, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(query.max_user_id, user)
-    const account = this.users.requireByMaxId(user.id)
+    const account = this.users.requireRoleByMaxId(user.id, 'teacher')
     const teacher = this.database.db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(account.id) as { id: number } | undefined
-    return { ok: true, data: { students: teacher ? this.homeworks.teacherStudents(teacher.id) : [] } }
+    if (!teacher) throw new ForbiddenException('Профиль преподавателя не найден.')
+    return { ok: true, data: { students: this.homeworks.teacherStudents(teacher.id) } }
   }
 
   @Get('teacher/dashboard')
   teacherDashboard(@Query() query: MaxIdQuery, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(query.max_user_id, user)
-    const account = this.users.requireByMaxId(user.id)
+    const account = this.users.requireRoleByMaxId(user.id, 'teacher')
     const teacher = this.database.db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(account.id) as { id: number } | undefined
-    if (!teacher) return { ok: false, error: 'Преподаватель не найден.' }
+    if (!teacher) throw new ForbiddenException('Профиль преподавателя не найден.')
     return { ok: true, data: this.homeworks.teacherDashboard(teacher.id) }
   }
 
   @Get('teacher/student-homeworks')
   teacherHomeworks(@Query() query: TeacherHomeworkQuery, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(query.max_user_id, user)
-    const account = this.users.requireByMaxId(user.id)
+    const account = this.users.requireRoleByMaxId(user.id, 'teacher')
     const teacher = this.database.db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(account.id) as { id: number } | undefined
-    return { ok: true, data: { homeworks: teacher ? this.homeworks.teacherHomeworks(teacher.id, Number(query.student_id)) : [] } }
+    if (!teacher) throw new ForbiddenException('Профиль преподавателя не найден.')
+    return { ok: true, data: { homeworks: this.homeworks.teacherHomeworks(teacher.id, Number(query.student_id)) } }
   }
 
   @Post('teacher/review')
   review(@Body() body: ReviewDto, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(body.max_user_id, user)
-    const account = this.users.requireByMaxId(user.id)
+    const account = this.users.requireRoleByMaxId(user.id, 'teacher')
     const teacher = this.database.db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(account.id) as { id: number } | undefined
-    if (!teacher) return { ok: false, error: 'Преподаватель не найден.' }
+    if (!teacher) throw new ForbiddenException('Профиль преподавателя не найден.')
     this.homeworks.review({ homeworkId: body.homework_id, teacherId: teacher.id, rating: body.rating, comment: body.comment, status: body.status })
     return { ok: true }
   }
@@ -126,7 +128,7 @@ export class HomeworksController {
   @Post('student/homeworks/:id/revision')
   revision(@Param('id', ParseIntPipe) id: number, @Body() body: RevisionDto, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(body.max_user_id, user)
-    this.homeworks.submitRevision(id, this.users.requireByMaxId(user.id).id, body.text, body.file_id)
+    this.homeworks.submitRevision(id, this.users.requireRoleByMaxId(user.id, 'student').id, body.text, body.file_id)
     return { ok: true }
   }
 }

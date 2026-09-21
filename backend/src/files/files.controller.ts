@@ -22,8 +22,8 @@ export class FilesController {
   @UseInterceptors(FileInterceptor('file', { limits: { files: 1, fileSize: 50 * 1024 * 1024 } }))
   uploadHomework(@Query() query: MaxIdQuery, @CurrentMaxUser() maxUser: MaxUser, @UploadedFile() file: UploadedFileData) {
     assertMaxUserId(query.max_user_id, maxUser)
-    const user = this.users.requireByMaxId(maxUser.id)
-    if (!this.users.hasRole(user.id, 'student')) throw new BadRequestException('Загрузка доступна ученику.')
+    const user = this.users.requireRoleByMaxId(maxUser.id, 'student')
+    this.requireStudent(user.id, true)
     const stored = this.files.store(user.id, 'homework', file)
     return { ok: true, data: { file_id: stored.id, content_type: this.files.contentTypeFor(stored.mime_type), original_name: stored.original_name, byte_size: stored.byte_size } }
   }
@@ -32,8 +32,8 @@ export class FilesController {
   @UseInterceptors(FileInterceptor('file', { limits: { files: 1, fileSize: 50 * 1024 * 1024 } }))
   uploadRevision(@Query() query: MaxIdQuery, @CurrentMaxUser() maxUser: MaxUser, @UploadedFile() file: UploadedFileData) {
     assertMaxUserId(query.max_user_id, maxUser)
-    const user = this.users.requireByMaxId(maxUser.id)
-    if (!this.users.hasRole(user.id, 'student')) throw new BadRequestException('Загрузка доступна ученику.')
+    const user = this.users.requireRoleByMaxId(maxUser.id, 'student')
+    this.requireStudent(user.id, true)
     const stored = this.files.store(user.id, 'revision', file)
     return { ok: true, data: { file_id: stored.id, content_type: this.files.contentTypeFor(stored.mime_type), original_name: stored.original_name, byte_size: stored.byte_size } }
   }
@@ -42,18 +42,24 @@ export class FilesController {
   @UseInterceptors(FileInterceptor('file', { limits: { files: 1, fileSize: 10 * 1024 * 1024 } }))
   uploadAvatar(@Query() query: MaxIdQuery, @CurrentMaxUser() maxUser: MaxUser, @UploadedFile() file: UploadedFileData) {
     assertMaxUserId(query.max_user_id, maxUser)
-    const user = this.users.requireByMaxId(maxUser.id)
-    const student = this.database.db.prepare('SELECT id FROM students WHERE user_id = ?').get(user.id) as { id: number } | undefined
-    if (!student) throw new BadRequestException('Профиль ученика не найден.')
+    const user = this.users.requireRoleByMaxId(maxUser.id, 'student')
+    const student = this.requireStudent(user.id)
+    const previous = this.database.db.prepare('SELECT avatar_file_id FROM students WHERE id = ?').get(student.id) as { avatar_file_id?: string } | undefined
     const stored = this.files.store(user.id, 'avatar', file)
-    this.database.db.prepare("UPDATE students SET avatar_file_id = ?, updated_at = datetime('now') WHERE id = ?").run(stored.id, student.id)
+    try {
+      this.database.db.prepare("UPDATE students SET avatar_file_id = ?, updated_at = datetime('now') WHERE id = ?").run(stored.id, student.id)
+    } catch (error) {
+      this.files.discardIfUnreferenced(stored.id, user.id)
+      throw error
+    }
+    if (previous?.avatar_file_id && previous.avatar_file_id !== stored.id) this.files.discardIfUnreferenced(previous.avatar_file_id, user.id)
     return { ok: true, data: { file_id: stored.id } }
   }
 
   @Get('student/me/avatar')
   ownAvatar(@Query() query: MaxIdQuery, @CurrentMaxUser() maxUser: MaxUser, @Res() response: Response) {
     assertMaxUserId(query.max_user_id, maxUser)
-    const user = this.users.requireByMaxId(maxUser.id)
+    const user = this.users.requireRoleByMaxId(maxUser.id, 'student')
     const student = this.database.db.prepare('SELECT avatar_file_id FROM students WHERE user_id = ?').get(user.id) as { avatar_file_id?: string } | undefined
     if (!student?.avatar_file_id) throw new NotFoundException('Аватар не установлен.')
     return this.send(student.avatar_file_id, response)
@@ -74,14 +80,21 @@ export class FilesController {
   @UseInterceptors(FileInterceptor('file', { limits: { files: 1, fileSize: 50 * 1024 * 1024 } }))
   addAttachment(@Param('id', ParseIntPipe) homeworkId: number, @Query() query: MaxIdQuery, @CurrentMaxUser() maxUser: MaxUser, @UploadedFile() file: UploadedFileData) {
     assertMaxUserId(query.max_user_id, maxUser)
-    const user = this.users.requireByMaxId(maxUser.id)
+    const user = this.users.requireRoleByMaxId(maxUser.id, 'student')
+    this.requireStudent(user.id, true)
     const homework = this.database.db.prepare('SELECT h.id, h.status, s.user_id FROM homeworks h JOIN students s ON s.id = h.student_id WHERE h.id = ?').get(homeworkId) as { id: number; status: string; user_id: number } | undefined
     if (!homework) throw new NotFoundException('Домашнее задание не найдено.')
     if (homework.user_id !== user.id) throw new ForbiddenException('Нет доступа к этой работе.')
     if (!['pending', 'revision'].includes(homework.status)) throw new BadRequestException('Добавлять файлы можно только до завершения проверки.')
     const stored = this.files.store(user.id, 'homework', file)
     const order = Number((this.database.db.prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 AS value FROM homework_files WHERE homework_id = ?').get(homeworkId) as { value: number }).value)
-    const result = this.database.db.prepare('INSERT INTO homework_files (homework_id, file_id, content_type, sort_order) VALUES (?, ?, ?, ?)').run(homeworkId, stored.id, this.files.contentTypeFor(stored.mime_type), order)
+    let result
+    try {
+      result = this.database.db.prepare('INSERT INTO homework_files (homework_id, file_id, content_type, sort_order) VALUES (?, ?, ?, ?)').run(homeworkId, stored.id, this.files.contentTypeFor(stored.mime_type), order)
+    } catch (error) {
+      this.files.discardIfUnreferenced(stored.id, user.id)
+      throw error
+    }
     return { ok: true, data: { id: Number(result.lastInsertRowid), file_id: stored.id, content_type: this.files.contentTypeFor(stored.mime_type), sort_order: order } }
   }
 
@@ -115,6 +128,13 @@ export class FilesController {
     response.setHeader('X-Content-Type-Options', 'nosniff')
     response.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
     stream.pipe(response)
+  }
+
+  private requireStudent(userId: number, activeOnly = false) {
+    const student = this.database.db.prepare('SELECT id, status FROM students WHERE user_id = ?').get(userId) as { id: number; status: string } | undefined
+    if (!student) throw new ForbiddenException('Профиль ученика не найден.')
+    if (activeOnly && student.status !== 'studying') throw new BadRequestException('Загрузка учебных файлов доступна только во время обучения.')
+    return student
   }
 }
 
