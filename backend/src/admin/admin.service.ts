@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { DatabaseService } from '../database/database.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { UsersService } from '../users/users.service'
+import { normalizePhone } from '../access/phone.util'
 
 @Injectable()
 export class AdminService {
@@ -22,6 +23,36 @@ export class AdminService {
   profileEdits() { return this.database.db.prepare('SELECT e.*, s.full_name FROM student_profile_edits e JOIN students s ON s.id = e.student_id ORDER BY e.created_at DESC').all() }
   audit() { return this.database.db.prepare('SELECT a.*, a.meta AS details, u.max_user_id AS actor_max_user_id, u.username AS actor_username FROM audit_log a JOIN users u ON u.id = a.actor_user_id ORDER BY a.created_at DESC, a.id DESC LIMIT 500').all() }
   feedback() { return this.database.db.prepare('SELECT f.*, s.full_name FROM private_feedback f JOIN students s ON s.id = f.student_id ORDER BY f.created_at DESC').all() }
+  phoneAccess() { return this.database.db.prepare(`SELECT i.*, u.max_user_id AS claimed_max_user_id FROM phone_role_invitations i LEFT JOIN users u ON u.id = i.claimed_user_id ORDER BY i.created_at DESC, i.id DESC`).all() }
+  createPhoneAccess(input: { phone: string; role: 'student' | 'teacher' | 'admin'; fullName: string; lessonsCount?: number; metro?: string; status?: string }, actorUserId: number) {
+    const phone = normalizePhone(input.phone)
+    if (!phone) throw new BadRequestException('Введите корректный номер телефона.')
+    const existing = this.database.db.prepare('SELECT id, claimed_user_id FROM phone_role_invitations WHERE phone = ? AND role = ?').get(phone, input.role) as { id: number; claimed_user_id: number | null } | undefined
+    if (existing?.claimed_user_id) throw new ConflictException('Эта роль по номеру уже активирована.')
+    this.database.transaction(() => {
+      this.database.db.prepare(`INSERT INTO phone_role_invitations (phone, role, full_name, lessons_count, metro, student_status, created_by_user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(phone, role) DO UPDATE SET full_name = excluded.full_name, lessons_count = excluded.lessons_count, metro = excluded.metro, student_status = excluded.student_status, created_by_user_id = excluded.created_by_user_id, updated_at = datetime('now')`)
+        .run(phone, input.role, input.fullName.trim(), input.role === 'student' ? input.lessonsCount ?? 15 : null, input.role === 'student' ? input.metro?.trim() || null : null, input.role === 'student' ? input.status || 'studying' : null, actorUserId)
+      const verifiedUser = this.database.db.prepare('SELECT id FROM users WHERE verified_phone = ?').get(phone) as { id: number } | undefined
+      if (verifiedUser) {
+        this.users.addRole(verifiedUser.id, input.role)
+        if (input.role === 'teacher') this.database.db.prepare('INSERT OR IGNORE INTO teachers (user_id, full_name) VALUES (?, ?)').run(verifiedUser.id, input.fullName.trim())
+        if (input.role === 'student') this.database.db.prepare('INSERT OR IGNORE INTO students (user_id, full_name, phone, lessons_count, metro, status) VALUES (?, ?, ?, ?, ?, ?)').run(verifiedUser.id, input.fullName.trim(), phone, input.lessonsCount ?? 15, input.metro?.trim() || null, input.status || 'studying')
+        this.database.db.prepare("UPDATE phone_role_invitations SET claimed_user_id = ?, claimed_at = datetime('now'), updated_at = datetime('now') WHERE phone = ? AND role = ?").run(verifiedUser.id, phone, input.role)
+        this.notifications.create(verifiedUser.id, 'role_assigned_by_phone', `Вам назначена роль: ${input.role === 'student' ? 'ученик' : input.role === 'teacher' ? 'преподаватель' : 'администратор'}.`)
+      }
+      this.appendAudit(actorUserId, 'admin_phone_access_create', { phone: phone.replace(/.(?=.{4})/g, '*'), role: input.role })
+    })
+    return this.database.db.prepare('SELECT * FROM phone_role_invitations WHERE phone = ? AND role = ?').get(phone, input.role)
+  }
+  deletePhoneAccess(id: number, actorUserId: number) {
+    const invitation = this.database.db.prepare('SELECT id, phone, role, claimed_user_id FROM phone_role_invitations WHERE id = ?').get(id) as { id: number; phone: string; role: string; claimed_user_id: number | null } | undefined
+    if (!invitation) throw new NotFoundException('Назначение не найдено.')
+    if (invitation.claimed_user_id) throw new ConflictException('Активированное назначение нельзя удалить здесь — сначала снимите роль у пользователя.')
+    this.database.db.prepare('DELETE FROM phone_role_invitations WHERE id = ?').run(id)
+    this.appendAudit(actorUserId, 'admin_phone_access_delete', { invitation_id: id, role: invitation.role })
+  }
   reviewTeacherApplication(id: number, status: 'approved' | 'rejected', actorUserId?: number) {
     const application = this.database.db.prepare('SELECT * FROM teacher_applications WHERE id = ?').get(id) as { applicant_user_id: number; full_name: string; status: string } | undefined
     if (!application) throw new NotFoundException('Заявка не найдена.')

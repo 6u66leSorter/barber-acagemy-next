@@ -9,9 +9,30 @@ Table users {
   username text
   first_name text
   last_name text
+  verified_phone text [unique, note: "Нормализованный номер после проверки подписи MAX requestContact"]
   role text [not null, default: 'student', note: "student|teacher|admin (legacy role)"]
   created_at text [not null, default: "datetime('now')"]
   updated_at text [not null, default: "datetime('now')"]
+}
+
+Table phone_role_invitations {
+  id integer [pk, increment]
+  phone text [not null]
+  role text [not null, note: "student|teacher|admin"]
+  full_name text [not null]
+  lessons_count integer
+  metro text
+  student_status text
+  claimed_user_id integer
+  claimed_at text
+  created_by_user_id integer [not null]
+  created_at text [not null, default: "datetime('now')"]
+  updated_at text [not null, default: "datetime('now')"]
+
+  Indexes {
+    (phone, role) [unique]
+    phone
+  }
 }
 
 Table user_roles {
@@ -154,3 +175,5 @@ Ref: homework_comments.homework_id > homeworks.id [delete: cascade]
 Ref: homework_comments.author_user_id > users.id [delete: cascade]
 Ref: app_notifications.user_id > users.id [delete: cascade]
 Ref: audit_log.actor_user_id > users.id
+Ref: phone_role_invitations.claimed_user_id > users.id
+Ref: phone_role_invitations.created_by_user_id > users.id

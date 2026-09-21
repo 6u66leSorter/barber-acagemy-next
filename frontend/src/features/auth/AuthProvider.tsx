@@ -10,6 +10,7 @@ export type Session = {
   isTeacher: boolean
   isStudent: boolean
   isGuest: boolean
+  phoneVerified: boolean
   student: Record<string, unknown> | null
   teacher: Record<string, unknown> | null
   unread_notifications_count: number

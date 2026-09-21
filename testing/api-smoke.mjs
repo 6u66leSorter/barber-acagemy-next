@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { promisify } from 'node:util'
 import { spawn } from 'node:child_process'
+import crypto from 'node:crypto'
 
 const execFileAsync = promisify(execFile)
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -19,6 +20,14 @@ const adminMaxId = 1000000003
 const secondStudentMaxId = 1000000011
 const registrationMaxId = 1000000099
 const applicantMaxId = 1000000100
+const contactToken = 'smoke-contact-token'
+
+function signedContact(phone, userId) {
+  const normalized = phone.replace(/\D/g, '').replace(/^8(?=\d{10}$)/, '7')
+  const authDate = String(Math.floor(Date.now() / 1000))
+  const check = `authDate=${authDate}\nphone=${normalized}\nuserId=${userId}`
+  return { phone, auth_date: authDate, hash: crypto.createHmac('sha256', contactToken).update(check).digest('hex') }
+}
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -88,6 +97,7 @@ function seedSnapshot(databasePath) {
     'private_feedback',
     'feedback_milestones',
     'audit_log',
+    'phone_role_invitations',
   ]
   try {
     return Object.fromEntries(tables.map((table) => [table, database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count]))
@@ -111,6 +121,7 @@ async function main() {
     PORT: String(port),
     API_HOST: '127.0.0.1',
     CHAT_ENABLED: 'true',
+    MAX_BOT_TOKEN: contactToken,
   }
   const child = spawn(process.execPath, ['backend/dist/main.js'], {
     cwd: repositoryRoot,
@@ -202,11 +213,26 @@ async function main() {
     await api(baseUrl, '/students', {
       maxId: registrationMaxId,
       method: 'POST',
-      expected: 201,
+      expected: 410,
       body: { max_user_id: registrationMaxId, full_name: 'Smoke Student', phone: '+7 900 999-99-99', lessons_count: 10, metro: 'Тестовая' },
     })
+    await api(baseUrl, '/access/verify-phone', {
+      maxId: registrationMaxId,
+      method: 'POST',
+      expected: 201,
+      body: { max_user_id: registrationMaxId, ...signedContact('+7 900 999-99-99', registrationMaxId) },
+    })
+    const guestOnlySession = await api(baseUrl, `/session?max_user_id=${registrationMaxId}`, { maxId: registrationMaxId })
+    assert.equal(guestOnlySession.data.isGuest, true)
+    assert.equal(guestOnlySession.data.role, null)
+    await api(baseUrl, '/admin/phone-access', {
+      maxId: adminMaxId,
+      method: 'POST',
+      expected: 201,
+      body: { max_user_id: adminMaxId, phone: '+7 900 999-99-99', role: 'student', full_name: 'Smoke Student', lessons_count: 10, metro: 'Тестовая' },
+    })
     const registeredSession = await api(baseUrl, `/session?max_user_id=${registrationMaxId}`, { maxId: registrationMaxId })
-    assert.equal(registeredSession.data.student.status, 'moderation')
+    assert.equal(registeredSession.data.student.status, 'studying')
 
     await api(baseUrl, '/student/profile-edit', {
       maxId: studentMaxId,
@@ -228,18 +254,18 @@ async function main() {
     await api(baseUrl, '/teacher-application', {
       maxId: applicantMaxId,
       method: 'POST',
-      expected: 201,
+      expected: 410,
       body: { max_user_id: applicantMaxId, full_name: 'Smoke Teacher', phone: '+7 900 111-22-33' },
     })
-    const applications = await api(baseUrl, `/admin/teacher-applications?max_user_id=${adminMaxId}`, { maxId: adminMaxId })
-    const application = applications.data.applications.find((item) => item.full_name === 'Smoke Teacher')
-    assert.ok(application)
-    await api(baseUrl, '/admin/teacher-applications/review', {
+    await api(baseUrl, '/admin/phone-access', {
       maxId: adminMaxId,
       method: 'POST',
       expected: 201,
-      body: { max_user_id: adminMaxId, id: application.id, status: 'approved' },
+      body: { max_user_id: adminMaxId, phone: '+7 900 111-22-33', role: 'teacher', full_name: 'Smoke Teacher' },
     })
+    await api(baseUrl, '/access/verify-phone', { maxId: applicantMaxId, method: 'POST', expected: 201, body: { max_user_id: applicantMaxId, ...signedContact('+7 900 111-22-33', applicantMaxId) } })
+    const teacherByPhone = await api(baseUrl, `/session?max_user_id=${applicantMaxId}`, { maxId: applicantMaxId })
+    assert.equal(teacherByPhone.data.role, 'teacher')
 
     const audit = await api(baseUrl, `/admin/audit?max_user_id=${adminMaxId}`, { maxId: adminMaxId })
     assert.ok(audit.data.entries.length > 0)
@@ -263,7 +289,7 @@ async function main() {
     try {
       await waitForHealth(strictBaseUrl, strictChild)
       const persistedGuest = await api(strictBaseUrl, '/guest/portfolio-students')
-      assert.equal(persistedGuest.data.students.length, 3, 'data must survive API restart')
+      assert.equal(persistedGuest.data.students.length, 4, 'data created through phone access must survive API restart')
       await api(strictBaseUrl, `/session?max_user_id=${studentMaxId}`, { maxId: studentMaxId, expected: 401 })
     } finally {
       if (strictChild.exitCode === null && strictChild.signalCode === null) {

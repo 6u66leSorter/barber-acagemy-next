@@ -181,6 +181,23 @@ CREATE TABLE IF NOT EXISTS stored_files (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS phone_role_invitations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  phone TEXT NOT NULL,
+  role TEXT NOT NULL CHECK(role IN ('student','teacher','admin')),
+  full_name TEXT NOT NULL,
+  lessons_count INTEGER,
+  metro TEXT,
+  student_status TEXT CHECK(student_status IN ('moderation','studying','completed','rejected')),
+  claimed_user_id INTEGER,
+  claimed_at TEXT,
+  created_by_user_id INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(phone, role),
+  FOREIGN KEY(claimed_user_id) REFERENCES users(id),
+  FOREIGN KEY(created_by_user_id) REFERENCES users(id)
+);
 CREATE INDEX IF NOT EXISTS idx_users_max_user_id ON users(max_user_id);
 CREATE INDEX IF NOT EXISTS idx_students_status ON students(status);
 CREATE INDEX IF NOT EXISTS idx_student_teachers_student ON student_teachers(student_id);
@@ -195,6 +212,7 @@ CREATE INDEX IF NOT EXISTS idx_teacher_applications_status ON teacher_applicatio
 CREATE INDEX IF NOT EXISTS idx_profile_edits_status ON student_profile_edits(status);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_student ON chat_messages(student_id, id);
 CREATE INDEX IF NOT EXISTS idx_stored_files_owner ON stored_files(owner_user_id, purpose);
+CREATE INDEX IF NOT EXISTS idx_phone_role_invitations_phone ON phone_role_invitations(phone);
 `
 
 @Injectable()
@@ -212,6 +230,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.connection.pragma('foreign_keys = ON')
     this.assertCompatibleDatabase()
     this.connection.exec(schema)
+    this.ensureColumn('users', 'verified_phone', 'TEXT')
+    this.connection.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_verified_phone ON users(verified_phone) WHERE verified_phone IS NOT NULL')
     this.connection.prepare('INSERT OR IGNORE INTO user_roles (user_id, role) SELECT id, role FROM users WHERE role IS NOT NULL').run()
     this.logger.log(`SQLite database ready: ${path}`)
   }
@@ -236,5 +256,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     if (names.has('telegram_id') && !names.has('max_user_id')) {
       throw new Error('Legacy database detected: migrate users.telegram_id to users.max_user_id before starting Nest API.')
     }
+  }
+
+  private ensureColumn(table: string, column: string, definition: string) {
+    const columns = this.connection.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+    if (!columns.some((item) => item.name === column)) this.connection.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
   }
 }

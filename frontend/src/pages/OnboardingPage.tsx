@@ -1,58 +1,47 @@
-import { FormEvent, useState } from 'react'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { Notice } from '../components/UiState'
 import { useAuth } from '../features/auth/AuthProvider'
-import { getMaxUserId } from '../platform/max'
-
-type Mode = 'student' | 'teacher'
+import { getMaxUserId, requestMaxContact } from '../platform/max'
 
 export function OnboardingPage() {
-  const { reload } = useAuth()
+  const { reload, isDemoMode, session } = useAuth()
   const maxUserId = getMaxUserId()
-  const [mode, setMode] = useState<Mode>('student')
-  const [fullName, setFullName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [metro, setMetro] = useState('')
-  const [lessons, setLessons] = useState('15')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    if (!maxUserId) return
-    if (busy) return
+  const verify = async () => {
+    if (!maxUserId || busy) return
     setBusy(true); setMessage(''); setError('')
     try {
-      if (mode === 'student') {
-        await api.post('/students', { max_user_id: maxUserId, full_name: fullName.trim(), phone: phone.trim(), metro: metro.trim(), lessons_count: Number(lessons) })
-        await reload()
-      } else {
-        await api.post('/teacher-application', { max_user_id: maxUserId, full_name: fullName.trim(), phone: phone.trim() })
-        setMessage('Заявка отправлена. Администратор увидит её в очереди и сообщит о решении.')
-      }
-    } catch { setError('Не удалось отправить данные. Проверьте поля или вернитесь позже — возможно, заявка уже создана.') }
+      const contact = await requestMaxContact()
+      const response = await api.post('/access/verify-phone', { max_user_id: maxUserId, phone: contact.phone, auth_date: contact.authDate, hash: contact.hash })
+      setMessage(response.data?.data?.access === 'assigned' ? 'Номер подтверждён. Доступ к назначенной роли открыт.' : 'Номер подтверждён, но назначения для него пока нет. Вам доступен гостевой просмотр.')
+      await reload()
+    } catch (cause) {
+      const unavailable = cause instanceof Error && cause.message === 'contact_unavailable'
+      setError(unavailable ? 'Подтверждение номера работает только внутри мини-приложения MAX.' : 'Не удалось подтвердить номер. Если вы отказались от передачи контакта, нажмите кнопку ещё раз.')
+    }
     finally { setBusy(false) }
   }
 
   return <section className="onboarding fi">
     <div className="hero-card">
       <span className="eyebrow">Добро пожаловать в MADCAP</span>
-      <h2>Выберите свой путь</h2>
-      <p>Зарегистрируйтесь как ученик или отправьте заявку на роль преподавателя.</p>
+      <h2>Подтвердите доступ</h2>
+      <p>Если администратор добавил ваш номер как ученика, преподавателя или администратора, MAX безопасно активирует нужный кабинет.</p>
     </div>
-    <div className="segmented" role="tablist" aria-label="Выбор роли">
-      <button type="button" role="tab" aria-selected={mode === 'student'} className={mode === 'student' ? 'active' : ''} onClick={() => { setMode('student'); setMessage(''); setError('') }}>Я ученик</button>
-      <button type="button" role="tab" aria-selected={mode === 'teacher'} className={mode === 'teacher' ? 'active' : ''} onClick={() => { setMode('teacher'); setMessage(''); setError('') }}>Я преподаватель</button>
-    </div>
-    <form className="tool-form" onSubmit={submit}>
-      <div><span className="eyebrow">{mode === 'student' ? 'Регистрация' : 'Заявка'}</span><h3>{mode === 'student' ? 'Начать обучение' : 'Стать преподавателем'}</h3></div>
-      <label>Имя и фамилия<input value={fullName} onChange={(event) => setFullName(event.target.value)} minLength={2} required autoComplete="name" /></label>
-      <label>Телефон<input value={phone} onChange={(event) => setPhone(event.target.value)} minLength={7} required inputMode="tel" autoComplete="tel" placeholder="+7 999 000-00-00" /></label>
-      {mode === 'student' && <><label>Ближайшее метро<input value={metro} onChange={(event) => setMetro(event.target.value)} placeholder="Например, Тверская" /></label><label>Количество уроков<select value={lessons} onChange={(event) => setLessons(event.target.value)}><option value="5">5 уроков</option><option value="10">10 уроков</option><option value="15">15 уроков</option><option value="20">20 уроков</option></select></label></>}
+    <div className="tool-form">
+      <div><span className="eyebrow">Вход без MAX ID</span><h3>Поделиться номером из MAX</h3></div>
+      <p className="muted">Номер не нужно вводить вручную. MAX покажет системное окно согласия, а сервер проверит цифровую подпись. Другим пользователям доступны только публичные портфолио.</p>
+      {session?.phoneVerified && <Notice kind="success">Номер уже подтверждён. Администратор ещё не назначил ему учебную роль.</Notice>}
+      {isDemoMode && <Notice kind="info">В демо-режиме роли выбираются в верхней панели. Проверка реального номера доступна только внутри MAX.</Notice>}
       {message && <Notice kind="success">{message}</Notice>}
       {error && <Notice kind="error">{error}</Notice>}
-      <button className="button primary btn-w" type="submit" disabled={busy}>{busy ? 'Отправляем…' : mode === 'student' ? 'Создать профиль' : 'Отправить заявку'}</button>
-    </form>
+      <button className="button primary btn-w" type="button" disabled={busy || isDemoMode} onClick={() => void verify()}>{busy ? 'Проверяем…' : 'Поделиться номером'}</button>
+      <Link className="button btn-w" to="/portfolio">Смотреть портфолио как гость</Link>
+    </div>
   </section>
 }

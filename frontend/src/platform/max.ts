@@ -5,7 +5,14 @@ export type MaxWebApp = {
   expand?: () => void
   setHeaderColor?: (color: string) => void
   setBackgroundColor?: (color: string) => void
+  requestContact?: () => Promise<{ phone: string; authDate: string; hash: string }>
   BackButton?: { show: () => void; hide: () => void; onClick: (callback: () => void) => void; offClick?: (callback: () => void) => void }
+}
+
+export async function requestMaxContact() {
+  const request = getMax()?.requestContact
+  if (!request) throw new Error('contact_unavailable')
+  return request()
 }
 
 export function getMax(): MaxWebApp | null {

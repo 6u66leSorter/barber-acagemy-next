@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, GoneException, Post, UseGuards } from '@nestjs/common'
 import { IsEnum, IsInt, IsOptional, IsPositive, IsString, MinLength } from 'class-validator'
 import { Type } from 'class-transformer'
 import { MaxAuthGuard } from '../auth/max-auth.guard'
@@ -19,7 +19,7 @@ export class ProfileController {
   constructor(private readonly profile: ProfileService, private readonly users: UsersService) {}
   @Post('student/about') studentAbout(@Body() b: AboutDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); this.profile.updateStudentAbout(this.users.requireRoleByMaxId(u.id, 'student').id, b.about_me); return { ok: true } }
   @Post('teacher/about') teacherAbout(@Body() b: AboutDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); this.profile.updateTeacherAbout(this.users.requireRoleByMaxId(u.id, 'teacher').id, b.about_me); return { ok: true } }
-  @Post('teacher-application') apply(@Body() b: TeacherApplicationDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); const account = this.users.getOrCreateGuest(u.id, { username: u.username, firstName: u.first_name, lastName: u.last_name }); this.profile.applyTeacher(account.id, b.full_name, b.phone); return { ok: true } }
+  @Post('teacher-application') apply(@Body() b: TeacherApplicationDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); throw new GoneException('Самостоятельная заявка отключена. Подтвердите номер из MAX — роль назначает администратор.') }
   @Post('student/feedback') feedback(@Body() b: FeedbackDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); this.profile.feedback(this.users.requireRoleByMaxId(u.id, 'student').id, b.subject, b.message); return { ok: true } }
   @Post('student/profile-edit') edit(@Body() b: EditDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); this.profile.requestEdit(this.users.requireRoleByMaxId(u.id, 'student').id, b.full_name, b.phone, b.metro); return { ok: true } }
 }

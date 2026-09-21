@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common'
 import { IsArray, IsEnum, IsInt, IsOptional, IsPositive, IsString, Min, MinLength } from 'class-validator'
 import { Type } from 'class-transformer'
 import { MaxAuthGuard } from '../auth/max-auth.guard'
@@ -15,6 +15,7 @@ class StudentActionDto extends MaxIdQuery { @Type(() => Number) @IsInt() @IsPosi
 class StudentCreateDto extends MaxIdQuery { @Type(() => Number) @IsInt() @IsPositive() target_max_user_id!: number; @IsString() @MinLength(2) full_name!: string; @IsString() @MinLength(7) phone!: string; @Type(() => Number) @IsInt() @Min(0) lessons_count!: number; @IsOptional() @IsString() metro?: string; @IsOptional() @IsEnum(['moderation', 'studying', 'completed', 'rejected']) status?: string }
 class StudentUpdateDto extends MaxIdQuery { @IsOptional() @IsString() @MinLength(2) full_name?: string; @IsOptional() @IsString() @MinLength(7) phone?: string; @IsOptional() @Type(() => Number) @IsInt() @Min(0) lessons_count?: number; @IsOptional() @IsString() metro?: string; @IsOptional() @IsEnum(['student', 'intern', 'barber']) student_track?: string; @IsOptional() @IsEnum(['moderation', 'studying', 'completed', 'rejected']) status?: string; @IsOptional() @IsArray() @IsInt({ each: true }) teacher_ids?: number[] }
 class TeacherActionDto extends MaxIdQuery { @Type(() => Number) @IsInt() @IsPositive() target_max_user_id!: number; @IsEnum(['assign', 'remove']) action!: 'assign' | 'remove'; @IsOptional() @IsString() full_name?: string }
+class PhoneAccessDto extends MaxIdQuery { @IsString() @MinLength(7) phone!: string; @IsEnum(['student', 'teacher', 'admin']) role!: 'student' | 'teacher' | 'admin'; @IsString() @MinLength(2) full_name!: string; @IsOptional() @Type(() => Number) @IsInt() @Min(0) lessons_count?: number; @IsOptional() @IsString() metro?: string; @IsOptional() @IsEnum(['moderation', 'studying', 'completed', 'rejected']) status?: string }
 @Controller('admin') @UseGuards(MaxAuthGuard)
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
@@ -26,6 +27,7 @@ export class AdminController {
   @Get('profile-edits') profileEdits(@Query() q: MaxIdQuery, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(q.max_user_id, u); this.admin.requireAdmin(u.id); return { ok: true, data: { edits: this.admin.profileEdits() } } }
   @Get('audit') audit(@Query() q: MaxIdQuery, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(q.max_user_id, u); this.admin.requireAdmin(u.id); return { ok: true, data: { entries: this.admin.audit() } } }
   @Get('feedback') feedback(@Query() q: MaxIdQuery, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(q.max_user_id, u); this.admin.requireAdmin(u.id); return { ok: true, data: { feedback: this.admin.feedback() } } }
+  @Get('phone-access') phoneAccess(@Query() q: MaxIdQuery, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(q.max_user_id, u); this.admin.requireAdmin(u.id); return { ok: true, data: { invitations: this.admin.phoneAccess() } } }
   @Post('teacher-applications/review') reviewApplication(@Body() b: ActionDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); const actor = this.admin.requireAdmin(u.id); this.admin.reviewTeacherApplication(b.id, b.status, actor.id); return { ok: true } }
   @Post('assign-student') assign(@Body() b: AssignmentDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); const actor = this.admin.requireAdmin(u.id); this.admin.assign(b.student_id, b.teacher_id, actor.id); return { ok: true } }
   @Post('unassign-student') unassign(@Body() b: AssignmentDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); const actor = this.admin.requireAdmin(u.id); this.admin.unassign(b.student_id, b.teacher_id, actor.id); return { ok: true } }
@@ -34,4 +36,6 @@ export class AdminController {
   @Post('students/create') createStudent(@Body() b: StudentCreateDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); const actor = this.admin.requireAdmin(u.id); return { ok: true, data: this.admin.createStudent({ maxUserId: b.target_max_user_id, fullName: b.full_name, phone: b.phone, lessonsCount: b.lessons_count, metro: b.metro, status: b.status }, actor.id) } }
   @Patch('students/:id') updateStudent(@Param('id', ParseIntPipe) id: number, @Body() b: StudentUpdateDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); const actor = this.admin.requireAdmin(u.id); return { ok: true, data: this.admin.updateStudent(id, { fullName: b.full_name, phone: b.phone, lessonsCount: b.lessons_count, metro: b.metro, studentTrack: b.student_track, status: b.status, teacherIds: b.teacher_ids }, actor.id) } }
   @Post('teachers') teacherAction(@Body() b: TeacherActionDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); const actor = this.admin.requireAdmin(u.id); this.admin.manageTeacher(b.target_max_user_id, b.action, b.full_name, actor.id); return { ok: true } }
+  @Post('phone-access') createPhoneAccess(@Body() b: PhoneAccessDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); const actor = this.admin.requireAdmin(u.id); return { ok: true, data: this.admin.createPhoneAccess({ phone: b.phone, role: b.role, fullName: b.full_name, lessonsCount: b.lessons_count, metro: b.metro, status: b.status }, actor.id) } }
+  @Delete('phone-access/:id') deletePhoneAccess(@Param('id', ParseIntPipe) id: number, @Query() q: MaxIdQuery, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(q.max_user_id, u); const actor = this.admin.requireAdmin(u.id); this.admin.deletePhoneAccess(id, actor.id); return { ok: true } }
 }

@@ -10,6 +10,7 @@ export type UserRecord = {
   first_name: string | null
   last_name: string | null
   role: UserRole
+  verified_phone?: string | null
 }
 
 @Injectable()
@@ -115,6 +116,7 @@ export class UsersService {
       isTeacher,
       isStudent,
       isGuest: Boolean(user) && !isAdmin && !isTeacher && !isStudent,
+      phoneVerified: Boolean(user?.verified_phone),
       student,
       teacher,
       unread_notifications_count: user

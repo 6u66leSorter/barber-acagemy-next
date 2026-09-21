@@ -46,12 +46,16 @@ nano .env
 MAX_BOT_TOKEN=рабочий_токен_MAX_бота
 MAX_WEBAPP_AUTH=strict
 MAX_INIT_DATA_MAX_AGE_SEC=3600
+MAX_CONTACT_MAX_AGE_SEC=300
+INITIAL_ADMIN_PHONE=7XXXXXXXXXX
 API_PORT=8787
 CHAT_ENABLED=true
 APP_NOTIFICATIONS_RETENTION_DAYS=90
 ```
 
 Токен не добавляйте в GitHub, README, frontend или Dockerfile.
+
+`INITIAL_ADMIN_PHONE` нужен только для первого администратора. После того как владелец этого номера откроет Mini App и подтвердит контакт через системное окно MAX, роль сохранится в SQLite; затем переменную можно очистить и перезапустить API. Остальных учеников, преподавателей и администраторов добавляйте в разделе «Управление» по телефону — MAX ID узнавать не требуется.
 
 ## 4. Запустить контейнеры
 

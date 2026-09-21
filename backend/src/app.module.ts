@@ -12,6 +12,7 @@ import { GuestModule } from './guest/guest.module'
 import { AdminModule } from './admin/admin.module'
 import { ProfileModule } from './profile/profile.module'
 import { FilesModule } from './files/files.module'
+import { AccessModule } from './access/access.module'
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { FilesModule } from './files/files.module'
     AdminModule,
     ProfileModule,
     FilesModule,
+    AccessModule,
   ],
 })
 export class AppModule {}

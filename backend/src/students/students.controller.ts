@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, GoneException, Post, UseGuards } from '@nestjs/common'
 import { IsInt, IsOptional, IsPositive, IsString, MinLength } from 'class-validator'
 import { Type } from 'class-transformer'
 import { MaxAuthGuard } from '../auth/max-auth.guard'
@@ -25,7 +25,7 @@ export class StudentsController {
   @Post('students')
   register(@Body() body: RegistrationDto, @CurrentMaxUser() user: MaxUser) {
     assertMaxUserId(body.max_user_id, user)
-    return { ok: true, data: { student: this.students.register({ maxUserId: user.id, fullName: body.full_name, phone: body.phone, lessonsCount: body.lessons_count, metro: body.metro, username: user.username, firstName: user.first_name, lastName: user.last_name }) } }
+    throw new GoneException('Самостоятельная регистрация отключена. Подтвердите номер из MAX — роль назначает администратор.')
   }
 
 }
