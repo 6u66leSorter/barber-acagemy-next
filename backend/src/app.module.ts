@@ -11,6 +11,7 @@ import { ChatModule } from './chat/chat.module'
 import { GuestModule } from './guest/guest.module'
 import { AdminModule } from './admin/admin.module'
 import { ProfileModule } from './profile/profile.module'
+import { FilesModule } from './files/files.module'
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ProfileModule } from './profile/profile.module'
     GuestModule,
     AdminModule,
     ProfileModule,
+    FilesModule,
   ],
 })
 export class AppModule {}

@@ -42,6 +42,10 @@ export class UsersService {
     this.ensureRole(userId, role)
   }
 
+  removeRole(userId: number, role: UserRole) {
+    this.database.db.prepare('DELETE FROM user_roles WHERE user_id = ? AND role = ?').run(userId, role)
+  }
+
   getOrCreateGuest(maxUserId: number, profile?: { username?: string | null; firstName?: string | null; lastName?: string | null }) {
     const existing = this.findByMaxId(maxUserId)
     if (existing) {
@@ -72,9 +76,17 @@ export class UsersService {
   sessionFor(maxUserId: number) {
     const user = this.findByMaxId(maxUserId)
     const roles = user ? this.rolesForUser(user.id) : []
-    const student = user
+    const studentRow = user
       ? this.database.db.prepare(`SELECT s.*, u.max_user_id, u.username, u.first_name, u.last_name FROM students s JOIN users u ON s.user_id = u.id WHERE s.user_id = ?`).get(user.id)
       : null
+    const student = studentRow as Record<string, unknown> | null
+    if (student) {
+      const rating = this.database.db.prepare(`SELECT AVG(hr.rating) AS average_rating, COUNT(hr.rating) AS ratings_count FROM homework_reviews hr JOIN homeworks h ON h.id = hr.homework_id WHERE h.student_id = ? AND hr.status = 'approved'`).get(student.id) as { average_rating?: number | null; ratings_count?: number }
+      student.average_rating = rating.average_rating == null ? null : Number(rating.average_rating)
+      student.ratings_count = Number(rating.ratings_count || 0)
+      student.has_avatar = Boolean(student.avatar_file_id)
+      student.teachers = this.database.db.prepare('SELECT t.id, t.full_name FROM teachers t JOIN student_teachers st ON st.teacher_id = t.id WHERE st.student_id = ? ORDER BY t.full_name').all(student.id)
+    }
     const teacher = user
       ? this.database.db.prepare(`SELECT t.*, u.max_user_id, u.username, u.first_name, u.last_name FROM teachers t JOIN users u ON t.user_id = u.id WHERE t.user_id = ?`).get(user.id)
       : null

@@ -19,7 +19,7 @@ export class ProfileController {
   constructor(private readonly profile: ProfileService, private readonly users: UsersService) {}
   @Post('student/about') studentAbout(@Body() b: AboutDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); this.profile.updateAbout(this.users.requireByMaxId(u.id).id, b.about_me); return { ok: true } }
   @Post('teacher/about') teacherAbout(@Body() b: AboutDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); this.profile.updateAbout(this.users.requireByMaxId(u.id).id, b.about_me); return { ok: true } }
-  @Post('teacher-application') apply(@Body() b: TeacherApplicationDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); this.profile.applyTeacher(this.users.requireByMaxId(u.id).id, b.full_name, b.phone); return { ok: true } }
+  @Post('teacher-application') apply(@Body() b: TeacherApplicationDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); const account = this.users.getOrCreateGuest(u.id, { username: u.username, firstName: u.first_name, lastName: u.last_name }); this.profile.applyTeacher(account.id, b.full_name, b.phone); return { ok: true } }
   @Post('student/feedback') feedback(@Body() b: FeedbackDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); this.profile.feedback(this.users.requireByMaxId(u.id).id, b.subject, b.message); return { ok: true } }
   @Post('student/profile-edit') edit(@Body() b: EditDto, @CurrentMaxUser() u: MaxUser) { assertMaxUserId(b.max_user_id, u); this.profile.requestEdit(this.users.requireByMaxId(u.id).id, b.full_name, b.phone, b.metro); return { ok: true } }
 }

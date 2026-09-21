@@ -65,7 +65,7 @@ export class HomeworksController {
     const account = this.users.requireByMaxId(user.id)
     const student = this.database.db.prepare('SELECT id FROM students WHERE user_id = ?').get(account.id) as { id: number } | undefined
     if (!student) return { ok: false, error: 'Ученик не найден.' }
-    return { ok: true, data: { homework: this.homeworks.create({ studentId: student.id, lessonNumber: body.lesson_number, isBonus: body.is_bonus, contentType: body.content_type, fileId: body.file_id, textContent: body.text_content, haircutName: body.haircut_name }) } }
+    return { ok: true, data: { homework: this.homeworks.create({ studentId: student.id, ownerUserId: account.id, lessonNumber: body.lesson_number, isBonus: body.is_bonus, contentType: body.content_type, fileId: body.file_id, textContent: body.text_content, haircutName: body.haircut_name }) } }
   }
 
   @Get('homeworks/:id')
@@ -86,6 +86,15 @@ export class HomeworksController {
     const account = this.users.requireByMaxId(user.id)
     const teacher = this.database.db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(account.id) as { id: number } | undefined
     return { ok: true, data: { students: teacher ? this.homeworks.teacherStudents(teacher.id) : [] } }
+  }
+
+  @Get('teacher/dashboard')
+  teacherDashboard(@Query() query: MaxIdQuery, @CurrentMaxUser() user: MaxUser) {
+    assertMaxUserId(query.max_user_id, user)
+    const account = this.users.requireByMaxId(user.id)
+    const teacher = this.database.db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(account.id) as { id: number } | undefined
+    if (!teacher) return { ok: false, error: 'Преподаватель не найден.' }
+    return { ok: true, data: this.homeworks.teacherDashboard(teacher.id) }
   }
 
   @Get('teacher/student-homeworks')

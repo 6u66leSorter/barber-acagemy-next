@@ -7,6 +7,8 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: ${API_PORT:-8787}
       DATABASE_PATH: ${DATABASE_PATH:-/app/data/barber.db}
+      UPLOAD_DIR: ${UPLOAD_DIR:-/app/data/uploads}
+      MAX_HOMEWORK_UPLOAD_MB: ${MAX_HOMEWORK_UPLOAD_MB:-50}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
       MAX_WEBAPP_AUTH: ${MAX_WEBAPP_AUTH:-strict}
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN:-}

@@ -170,6 +170,17 @@ CREATE TABLE IF NOT EXISTS feedback_milestones (
   UNIQUE(student_id, milestone),
   FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
 );
+CREATE TABLE IF NOT EXISTS stored_files (
+  id TEXT PRIMARY KEY,
+  owner_user_id INTEGER NOT NULL,
+  purpose TEXT NOT NULL CHECK(purpose IN ('homework','revision','avatar')),
+  storage_name TEXT NOT NULL UNIQUE,
+  original_name TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  byte_size INTEGER NOT NULL CHECK(byte_size >= 0),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 CREATE INDEX IF NOT EXISTS idx_users_max_user_id ON users(max_user_id);
 CREATE INDEX IF NOT EXISTS idx_students_status ON students(status);
 CREATE INDEX IF NOT EXISTS idx_student_teachers_student ON student_teachers(student_id);
@@ -183,6 +194,7 @@ CREATE INDEX IF NOT EXISTS idx_app_notifications_unread ON app_notifications(use
 CREATE INDEX IF NOT EXISTS idx_teacher_applications_status ON teacher_applications(status);
 CREATE INDEX IF NOT EXISTS idx_profile_edits_status ON student_profile_edits(status);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_student ON chat_messages(student_id, id);
+CREATE INDEX IF NOT EXISTS idx_stored_files_owner ON stored_files(owner_user_id, purpose);
 `
 
 @Injectable()

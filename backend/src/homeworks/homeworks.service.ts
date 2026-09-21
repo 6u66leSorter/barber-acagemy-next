@@ -2,13 +2,14 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { DatabaseService } from '../database/database.service'
 import { UsersService } from '../users/users.service'
 import { NotificationsService } from '../notifications/notifications.service'
+import { FilesService } from '../files/files.service'
 
 export type HomeworkStatus = 'pending' | 'approved' | 'rejected' | 'revision'
 export type HomeworkContentType = 'photo' | 'video' | 'text' | 'document'
 
 @Injectable()
 export class HomeworksService {
-  constructor(private readonly database: DatabaseService, private readonly users: UsersService, private readonly notifications: NotificationsService) {}
+  constructor(private readonly database: DatabaseService, private readonly users: UsersService, private readonly notifications: NotificationsService, private readonly files: FilesService) {}
 
   byId(id: number) {
     return this.database.db.prepare(`SELECT h.*, s.full_name AS student_name, s.user_id AS student_user_id, u.max_user_id AS student_max_user_id FROM homeworks h JOIN students s ON h.student_id = s.id JOIN users u ON s.user_id = u.id WHERE h.id = ?`).get(id) as Record<string, unknown> | undefined
@@ -32,9 +33,11 @@ export class HomeworksService {
     return this.database.db.prepare(`SELECT hc.*, u.first_name, u.last_name, u.username, CASE WHEN EXISTS (SELECT 1 FROM teachers t WHERE t.user_id = u.id) THEN 'teacher' WHEN EXISTS (SELECT 1 FROM students s WHERE s.user_id = u.id) THEN 'student' ELSE 'admin' END AS author_role FROM homework_comments hc JOIN users u ON u.id = hc.author_user_id WHERE hc.homework_id = ? ORDER BY hc.id ASC`).all(homeworkId)
   }
 
-  create(input: { studentId: number; lessonNumber?: number | null; isBonus?: boolean; contentType: HomeworkContentType; fileId?: string | null; textContent?: string | null; haircutName?: string | null }) {
+  create(input: { studentId: number; ownerUserId: number; lessonNumber?: number | null; isBonus?: boolean; contentType: HomeworkContentType; fileId?: string | null; textContent?: string | null; haircutName?: string | null }) {
     const duplicate = this.database.db.prepare(`SELECT id FROM homeworks WHERE student_id = ? AND status = 'pending' AND is_bonus = ? AND lesson_number IS ? LIMIT 1`).get(input.studentId, input.isBonus ? 1 : 0, input.isBonus ? null : input.lessonNumber ?? null)
     if (duplicate) throw new BadRequestException('Работа с таким уроком уже ожидает проверки.')
+    if (input.fileId) this.files.assertOwned(input.fileId, input.ownerUserId, ['homework'])
+    if (input.contentType !== 'text' && !input.fileId) throw new BadRequestException('Для этого типа работы требуется загруженный файл.')
     const result = this.database.db.prepare(`INSERT INTO homeworks (student_id, lesson_number, is_bonus, content_type, file_id, text_content, status, haircut_name) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`).run(input.studentId, input.lessonNumber ?? null, input.isBonus ? 1 : 0, input.contentType, input.fileId || null, input.textContent?.trim() || null, input.haircutName?.trim() || null)
     const homework = this.byId(Number(result.lastInsertRowid))
     const teachers = this.database.db.prepare('SELECT t.user_id FROM student_teachers st JOIN teachers t ON t.id = st.teacher_id WHERE st.student_id = ?').all(input.studentId) as Array<{ user_id: number }>
@@ -47,6 +50,7 @@ export class HomeworksService {
     if (!homework) throw new NotFoundException('Домашнее задание не найдено.')
     if (homework.student_user_id !== userId) throw new ForbiddenException('Нет доступа к этой работе.')
     if (!['pending', 'revision'].includes(String(homework.status))) throw new BadRequestException('Изменять можно только работу на проверке или доработке.')
+    if (input.fileId) this.files.assertOwned(input.fileId, userId, ['homework'])
     this.database.db.prepare("UPDATE homeworks SET haircut_name = COALESCE(?, haircut_name), text_content = COALESCE(?, text_content), file_id = COALESCE(?, file_id), updated_at = datetime('now') WHERE id = ?").run(input.haircutName?.trim() || null, input.textContent?.trim() || null, input.fileId || null, homeworkId)
     return this.byId(homeworkId)
   }
@@ -59,7 +63,15 @@ export class HomeworksService {
   }
 
   teacherStudents(teacherId: number) {
-    return this.database.db.prepare(`SELECT s.*, u.max_user_id, u.username, u.first_name, u.last_name, COUNT(CASE WHEN h.status = 'pending' THEN 1 END) AS pending_count FROM students s JOIN users u ON s.user_id = u.id JOIN student_teachers st ON s.id = st.student_id LEFT JOIN homeworks h ON s.id = h.student_id WHERE st.teacher_id = ? AND s.status IN ('studying','completed') GROUP BY s.id ORDER BY pending_count DESC, s.full_name`).all(teacherId)
+    return this.database.db.prepare(`SELECT s.id, s.full_name, s.lessons_count, s.status, s.student_track, s.metro, s.about_me, s.avatar_file_id, COUNT(CASE WHEN h.status = 'pending' THEN 1 END) AS pending_count FROM students s JOIN student_teachers st ON s.id = st.student_id LEFT JOIN homeworks h ON s.id = h.student_id WHERE st.teacher_id = ? AND s.status IN ('studying','completed') GROUP BY s.id ORDER BY pending_count DESC, s.full_name`).all(teacherId)
+  }
+
+  teacherDashboard(teacherId: number) {
+    const students = this.teacherStudents(teacherId) as Array<Record<string, unknown>>
+    const pending = this.database.db.prepare(`SELECT h.id, h.student_id, h.lesson_number, h.is_bonus, h.haircut_name, h.created_at, s.full_name AS student_name FROM homeworks h JOIN students s ON s.id = h.student_id JOIN student_teachers st ON st.student_id = s.id WHERE st.teacher_id = ? AND h.status = 'pending' ORDER BY h.created_at DESC`).all(teacherId) as Array<Record<string, unknown>>
+    const seen = new Set<number>()
+    const lastStudents = pending.filter((row) => { const id = Number(row.student_id); if (seen.has(id)) return false; seen.add(id); return true }).slice(0, 3).map((row) => ({ student_id: row.student_id, student_name: row.student_name }))
+    return { pendingCount: pending.length, latest: pending[0] || null, students, lastStudents }
   }
 
   teacherHomeworks(teacherId: number, studentId: number, includeReviewed = true) {
@@ -83,8 +95,18 @@ export class HomeworksService {
       const studentUserId = Number(homework.student_user_id)
       const verb = input.status === 'approved' ? 'одобрена' : 'отправлена на доработку'
       this.notifications.create(studentUserId, 'homework_reviewed', `Работа «${String(homework.haircut_name || 'Домашнее задание')}» ${verb}.`, { homework_id: input.homeworkId })
+      if (input.status === 'approved') this.createFeedbackMilestone(studentId, studentUserId)
       return Number(result.lastInsertRowid)
     })
+  }
+
+  private createFeedbackMilestone(studentId: number, studentUserId: number) {
+    const completed = Number((this.database.db.prepare("SELECT COUNT(*) AS count FROM homeworks WHERE student_id = ? AND status = 'approved' AND is_bonus = 0").get(studentId) as { count: number }).count)
+    for (const milestone of [5, 10, 15]) {
+      if (completed < milestone) continue
+      const result = this.database.db.prepare('INSERT OR IGNORE INTO feedback_milestones (student_id, milestone) VALUES (?, ?)').run(studentId, milestone)
+      if (result.changes) this.notifications.create(studentUserId, 'feedback_milestone', `Вы завершили ${milestone} работ. Поделитесь впечатлениями о преподавателе и академии.`, { milestone })
+    }
   }
 
   addComment(homeworkId: number, authorUserId: number, text: string) {
@@ -110,6 +132,7 @@ export class HomeworksService {
     if (!homework) throw new NotFoundException('Домашнее задание не найдено.')
     if (homework.student_user_id !== userId) throw new ForbiddenException('Нет доступа к этой работе.')
     if (homework.status !== 'revision') throw new BadRequestException('Работа не ожидает доработки.')
+    if (fileId) this.files.assertOwned(fileId, userId, ['revision'])
     const value = text.trim()
     if (!value) throw new BadRequestException('Опишите выполненную доработку.')
     this.database.db.prepare("UPDATE homeworks SET revision_student_text = ?, revision_student_file_id = COALESCE(?, revision_student_file_id), status = 'pending', updated_at = datetime('now') WHERE id = ?").run(value, fileId || null, homeworkId)
