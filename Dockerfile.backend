@@ -7,13 +7,20 @@ RUN npm ci
 COPY backend backend
 RUN npm run build -w backend
 
+FROM node:20-bookworm-slim AS production-dependencies
+WORKDIR /app
+COPY package*.json ./
+COPY backend/package.json backend/package.json
+COPY frontend/package.json frontend/package.json
+RUN npm ci --omit=dev --workspace backend --include-workspace-root
+
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /app/node_modules ./node_modules
+COPY --from=production-dependencies /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/backend/package.json ./backend/package.json
-COPY --from=build /app/backend/node_modules ./backend/node_modules
+COPY --from=production-dependencies /app/backend/node_modules ./backend/node_modules
 COPY --from=build /app/backend/dist ./backend/dist
 COPY --from=build /app/backend/scripts ./backend/scripts
 RUN mkdir -p /app/data
