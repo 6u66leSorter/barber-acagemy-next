@@ -112,7 +112,7 @@ APP_NOTIFICATIONS_RETENTION_DAYS=90
 ```bash
 docker compose up -d --build
 docker compose ps
-curl http://127.0.0.1:8787/api/health
+curl http://127.0.0.1:8080/api/health
 ```
 
 Production web-контейнер нужно опубликовать через HTTPS reverse proxy на домене, например `https://max-quiz.ru/`. Подробная схема с Caddy находится в [MAX_DEPLOYMENT.md](MAX_DEPLOYMENT.md).

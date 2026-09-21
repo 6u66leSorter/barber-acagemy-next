@@ -12,6 +12,7 @@ Docker-проверка ниже воспроизводит локальную �
 
 Пошаговая серверная инструкция находится в [docs/MAX_DEPLOYMENT.md](docs/MAX_DEPLOYMENT.md).
 Все режимы запуска собраны в [docs/RUN_MODES.md](docs/RUN_MODES.md).
+Полный маршрут проверки экспертом описан в [docs/DEMO_SCENARIOS.md](docs/DEMO_SCENARIOS.md), сценарии реальной MAX-версии — в [docs/PRODUCTION_USER_SCENARIOS.md](docs/PRODUCTION_USER_SCENARIOS.md), а матрица переноса и подтверждений — в [docs/PRODUCT_AUDIT.md](docs/PRODUCT_AUDIT.md).
 
 ## Основной пользовательский сценарий
 
@@ -96,7 +97,7 @@ docker compose up --build
 docker compose -f docker-compose.yml -f docker-compose.local.yml exec api node backend/scripts/seed-demo.mjs
 ```
 
-Скрипт создаёт идемпотентно тестовые роли, три профиля учеников, несколько учебных работ, оценки, отзывы и комментарии с демонстрационными изображениями:
+Скрипт создаёт идемпотентно тестовые роли, три профиля учеников, работы во всех основных статусах, оценки, отзывы, комментарии, уведомления, чат, заявки, административный аудит и безопасные демонстрационные изображения:
 
 | Роль | MAX ID для API-проверки |
 | --- | --- |
@@ -187,4 +188,8 @@ npm ci
 npm test
 npm run lint
 npm run build
+npm run test:smoke
+docker compose -f docker-compose.yml -f docker-compose.local.yml config --quiet
 ```
+
+`npm run test:smoke` создаёт отдельную временную SQLite-базу и каталог uploads, выполняет сквозные API-сценарии и удаляет временные данные после завершения. Подробности находятся в [testing/README.md](testing/README.md).

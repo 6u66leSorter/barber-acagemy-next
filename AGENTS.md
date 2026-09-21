@@ -2,155 +2,139 @@
 
 ## Project overview
 
-MADCAP Barber Academy is a MAX Mini App for students, teachers,
-administrators, and guests. A Fastify API uses a local SQLite database. MAX is
-the only supported messenger platform. A browser-only development mode and a
-public guest portfolio are retained for local testing and public viewing.
+MADCAP Barber Academy is a MAX-only Mini App for students, teachers,
+administrators, and public guests.
+
+- `frontend/`: React, TypeScript, and Vite.
+- `backend/`: NestJS, TypeScript, and SQLite.
+- `docker/`: Nginx frontend hosting and `/api` proxy.
+- `testing/api-smoke.mjs`: isolated end-to-end API smoke test.
+
+Files under root `src/`, `bot/`, and `files_new/` are historical migration
+references. They are not part of the active build or Docker runtime. Do not
+extend them with new product behavior.
 
 ## Source of truth
 
-- `index.html` and `src/main.js`: main frontend entry points.
-- `src/newFrontApp.js`: main UI, client-side state, navigation, and API calls.
-- `src/index.css`: active styles; it imports `files_new/styles.css`.
-- `bot/maxWebAppAuth.js`: MAX Mini App init-data validation.
-- `bot/apiServer.js`: Fastify HTTP API.
-- `bot/database.js`: SQLite schema initialization and migrations.
-- `bot/dbService.js`: database queries and domain operations.
-- `PROJECT_CONTEXT.md`: product and architecture overview for this version.
-- `docs/DECISIONS.md` and `docs/WORK_LOG.md`: implementation decisions and
-  feature history; verify claims against the code before relying on them.
-- `docs/db/schema.dbml`: database documentation; verify it against runtime
-  migrations before treating it as complete.
-- `testing/atac/`: manual Postman/ATAC integration scenarios.
+- `frontend/src/App.tsx`: routes and role guards.
+- `frontend/src/pages/`: role workflows.
+- `frontend/src/components/`: shared UI and layout.
+- `frontend/src/platform/max.ts`: MAX bridge and demo identity selection.
+- `backend/src/app.module.ts`: backend composition.
+- `backend/src/auth/`: strict MAX init-data validation and current user.
+- `backend/src/database/database.service.ts`: schema and runtime migrations.
+- `backend/src/*/*.service.ts`: domain rules and parameterized SQL.
+- `backend/src/files/`: upload validation and protected file delivery.
+- `backend/scripts/seed-demo.mjs`: idempotent, non-destructive demo data.
+- `docs/PRODUCT_AUDIT.md`: acceptance matrix and verification evidence.
 
-## Runtime and package management
+## Package management and runtime
 
-- Use npm for the root application.
-- Use `npm ci` for reproducible root dependency installation.
-- Do not update dependency versions or replace `package-lock.json` without an
-  explicit reason and approval.
-- The locked toolchain requires Node.js 20.19+ or 22.12+; prefer one agreed,
-  fixed Node version for development and deployment.
+Use npm from the repository root. Do not replace `package-lock.json` or update
+dependencies without an explicit reason. The supported runtime is Node.js 20.
 
-## Common commands
+Common commands:
 
-Root frontend:
+- `npm ci`: reproducible dependency installation.
+- `npm run dev`: run the active Nest and React development servers.
+- `npm test`: run backend Jest suites.
+- `npm run lint`: lint active frontend and backend workspaces.
+- `npm run build`: build active frontend and backend workspaces.
+- `npm run test:smoke`: run the isolated API smoke scenario.
+- `npm run demo:docker`: build and start the full local demo.
+- `npm run db:seed-demo`: seed the configured database without clearing it.
+- `npm run max:check-token`: call MAX `GET /me` without printing the token.
 
-- `npm run dev`: start the Vite development server.
-- In Vite development mode, `?preview=demo` opens the role selector and
-  `?guest=1` opens the public portfolio.
-- `npm run dev:local`: start Vite with a sanitized browser-only local user ID
-  and connect it to the API on port 8787. This mode is unavailable in a
-  production build.
-- `npm run dev:max`: expose Vite on the local network and proxy `/api` to port
-  8787; normally pair this with an HTTPS tunnel to port 5173.
-- `npm run preview:max`: serve the production build on port 4173 and proxy
-  `/api` to port 8787. Prefer this over tunneling the Vite development server.
-- `npm run build`: create the production frontend in `dist/`.
-- `npm run preview`: serve the production build locally.
-- `npm run lint`: lint the root JavaScript project.
+## Data and side effects
 
-Backend:
+- Starting the API creates or migrates the configured SQLite database.
+- Demo seed is idempotent and must not erase existing data.
+- Tests must use a disposable `DATABASE_PATH` and `UPLOAD_DIR`.
+- A valuable database must be backed up together with uploads before migration.
+- `docker compose down` preserves the named volume; `down -v` destroys it.
+- Do not run `down -v` against production or an unidentified Compose project.
 
-- `npm run api`: start the Fastify API on port 8787 by default.
-- `npm run api:local`: start the API with MAX WebApp authentication
-  disabled. Use only with a disposable local database.
-- `npm run api:max`: start the API with strict signed MAX init-data validation.
-- `npm run max:check-token`: validate the local MAX token against the official
-  MAX `GET /me` endpoint without printing the token.
-- `npm run db:*`: inspect or modify the local SQLite database; review the exact
-  script before running it.
-- `npm run db:backup`: copy the current SQLite database into `data/backups/`.
+Never commit databases, WAL/SHM files, uploads, backups, `.env`, generated
+builds, IDE state, or dependency directories.
 
-There is no automated unit-test or type-check script. `testing/atac/` contains
-manual API scenarios that modify the local database.
-
-## Important side effects
-
-- Importing `bot/database.js`, including through the API, CLI, or setup
-  scripts, creates `data/barber.db` and automatically runs migrations.
-- API tests can create users, role assignments, homework, reviews,
-  notifications, and audit entries.
-- Database setup and delete commands modify local data.
-- Build commands write generated output to `dist/`.
-- Deployment commands change external infrastructure and must not be run
-  without explicit approval.
-
-Back up a valuable database before starting code that can run migrations.
-
-## Environment variables
-
-Never commit real values. Use `.env` locally and keep only placeholders in
-`.env.example`.
+## Environment
 
 Secrets:
 
-- `MAX_BOT_TOKEN`: MAX bot token used only by the API to validate init data.
+- `MAX_BOT_TOKEN`: server-only MAX bot token.
 
 Configuration:
 
-- `API_PORT` or `PORT`: API port; default is 8787.
-- `VITE_API_BASE_URL`: frontend API origin; empty means same origin.
-- `VITE_LOCAL_USER_ID`: positive local test-user ID. It is honored only by the
-  Vite development server, never by a production build.
-- `MAX_INIT_DATA_MAX_AGE_SEC`: maximum accepted age of MAX init data; default
-  is 3600 seconds.
-- `MAX_WEBAPP_AUTH`: `strict` by default; `off` is allowed only locally.
-- `MAX_HOMEWORK_UPLOAD_MB`: upload-size limit.
-- `CHAT_ENABLED`: enables or disables chat.
-- `APP_NOTIFICATIONS_RETENTION_DAYS`: notification retention period.
-- `API_PREFIX_STRIP_REWRITE`: compatibility switch for an nginx proxy setup.
+- `MAX_WEBAPP_AUTH`: `strict` in production, `off` only for local demo.
+- `MAX_INIT_DATA_MAX_AGE_SEC`: accepted init-data age; default `3600`.
+- `API_PORT` or `PORT`: API port; default `8787`.
+- `DATABASE_PATH`: SQLite file path.
+- `UPLOAD_DIR`: protected upload directory.
+- `MAX_HOMEWORK_UPLOAD_MB`: upload limit capped at 50 MB.
+- `CORS_ORIGINS`: comma-separated frontend origins.
+- `CHAT_ENABLED`: chat feature flag.
+- `APP_NOTIFICATIONS_RETENTION_DAYS`: notification retention.
+- `VITE_API_URL`: frontend API base URL when not using same-origin `/api`.
+- `VITE_DEMO_MODE`: build-time local role switch; never enable in production.
 
-## Security rules
+Keep placeholders only in `.env.example` and `backend/.env.example`.
 
-- Never print, commit, or paste secret values into logs, documentation, tests,
-  source files, or frontend environment variables.
-- Never commit `data/`, database files, uploads, backups, real environment
-  files, IDE state, dependency directories, or generated builds. A sanitized
-  `.env.example` containing names and placeholders only is allowed.
-- Treat MAX IDs, names, usernames, phone numbers, messages,
-  homework, and uploaded media as personal data.
-- The MAX IDs in
-  `testing/atac/barber-academy.environment.postman.json` are sanitized,
-  sequential placeholders. Replace them only in a local, ignored environment
-  when tests need real accounts; do not commit personal IDs.
-- Use `MAX_WEBAPP_AUTH=off` only for isolated local smoke tests. Production
-  must use `MAX_WEBAPP_AUTH=strict` and a restricted CORS policy.
-- Validate role checks whenever changing API endpoints.
-- Keep file-path containment and upload validation intact when changing file
-  handling.
+## Security invariants
+
+- MAX ID is an external authentication identifier only. Domain relations use
+  internal `users.id` and student/teacher primary keys.
+- Production requires signed, fresh MAX init data. `X-Max-User-Id` must not
+  authenticate a production request.
+- Guest endpoints expose only approved work of active students and never phone,
+  MAX ID, username, private comments, feedback, notifications, or chat.
+- Student/teacher chat is limited to current assignments. Foreign threads must
+  return `403`.
+- Teacher APIs must not expose student phone, MAX ID, or username unless a new
+  documented scenario explicitly requires it.
+- Admin endpoints require the `admin` role.
+- SQL containing user input must be parameterized.
+- Uploads require an allowed MIME type, matching magic signature, size limit,
+  opaque storage name, owner binding, and path containment.
+- Do not print, paste, or commit tokens or personal identifiers.
 
 ## Code conventions
 
-- Preserve ES module syntax in the root application and backend.
-- Follow the existing semicolon-free style in root source files.
-- Keep user-facing messages in Russian unless the surrounding interface uses
-  another language.
-- Reuse existing helpers for API responses, validation, authorization, and DB
-  access instead of duplicating them.
-- Use parameterized SQLite statements; never build SQL from user input.
-- Keep MAX Bridge behavior and signed init-data validation working.
-- Avoid broad refactors of `src/newFrontApp.js` or `bot/apiServer.js` while
-  making an unrelated fix.
+- Preserve TypeScript and ES modules in active workspaces.
+- Keep user-facing text in Russian.
+- Controllers handle HTTP/DTO concerns; services enforce domain access and data
+  rules. Reuse existing auth, role, response, notification, and file helpers.
+- Frontend pages use the shared API client and reusable loading/error/empty
+  components. Disable submissions while requests are active.
+- Keep mobile MAX layout, safe-area padding, keyboard access, and both themes.
+- If an API contract changes, update frontend, tests, and documentation in the
+  same change.
 
-## Verification expectations
+## Verification
 
-For ordinary root-code changes, run after dependencies are installed:
+For active code changes run, at minimum:
 
-1. `npm run lint`
-2. `npm run build`
+1. `npm test`
+2. `npm run lint`
+3. `npm run build`
+4. `npm run test:smoke` for backend/data/auth changes
+5. `docker compose -f docker-compose.yml -f docker-compose.local.yml config --quiet`
 
-For backend changes, obtain approval before starting the API because database
-creation and migrations are automatic. Use a disposable local database for
-manual API scenarios.
+For release readiness, also build and start Compose, verify `/api/health`, and
+manually inspect the affected role in the browser on disposable data.
 
-## Deployment
+## Documentation and deployment
 
-Automatic GitHub Actions deployment is currently disabled in
-`.github/workflows/deploy.yml`. There is no active server. Do not re-enable the
-workflow, run `deploy.sh`, configure SSH secrets, create a
-remote repository, or push changes without explicit approval.
+Keep these synchronized with code:
 
-Before re-enabling deployment, review the server path, nginx behavior, PM2
-configuration, database backup procedure, repository branch, SSH host, and all
-production secrets.
+- `README.md`
+- `docs/ARCHITECTURE.md`
+- `docs/FUNCTIONAL_PARITY.md`
+- `docs/DEMO_SCENARIOS.md`
+- `docs/PRODUCTION_USER_SCENARIOS.md`
+- `docs/PRODUCT_AUDIT.md`
+- `docs/MAX_DEPLOYMENT.md`
+- `docs/RUN_MODES.md`
+
+Do not push, deploy, rewrite Git history, enable automatic deployment, configure
+external infrastructure, or mutate a production database without explicit
+permission. Automatic deployment remains disabled.

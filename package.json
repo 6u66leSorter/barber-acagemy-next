@@ -8,6 +8,7 @@
     "build": "npm run build -w backend && npm run build -w frontend",
     "lint": "npm run lint -w backend && npm run lint -w frontend",
     "test": "npm run test -w backend",
+    "test:smoke": "npm run build -w backend && node testing/api-smoke.mjs",
     "start": "npm run start:prod -w backend",
     "max:check-token": "node backend/scripts/check-max-token.mjs",
     "db:seed-demo": "node backend/scripts/seed-demo.mjs",

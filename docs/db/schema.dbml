@@ -1,6 +1,6 @@
 Project barber_academy {
   database_type: "SQLite"
-  Note: "ER schema based on bot/database.js"
+  Note: "ER schema; runtime source of truth is backend/src/database/database.service.ts"
 }
 
 Table users {
