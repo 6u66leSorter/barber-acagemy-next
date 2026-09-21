@@ -1,48 +1,27 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../features/auth/AuthProvider'
 import { getMaxUserId } from '../platform/max'
 
-const demoFiles = ['demo-homework-crop.png', 'demo-homework-fade.png', 'demo-homework-beard.png']
-
 export function StudentToolsPage() {
-  const { session, reload } = useAuth()
-  const maxUserId = getMaxUserId()
-  const [lesson, setLesson] = useState('1')
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [fileId, setFileId] = useState(demoFiles[0])
-  const [about, setAbout] = useState('')
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-  const [feedbackSubject, setFeedbackSubject] = useState('academy')
-  const [feedbackText, setFeedbackText] = useState('')
-
-  useEffect(() => { setAbout(String(session?.student?.about_me || session?.teacher?.about_me || '')) }, [session])
-  if (!maxUserId || !session?.role) return null
-
-  const submitHomework = async (event: FormEvent) => {
-    event.preventDefault(); setError(''); setMessage('')
-    try {
-      await api.post('/homeworks', { max_user_id: maxUserId, lesson_number: Number(lesson), content_type: 'photo', file_id: fileId, haircut_name: title, text_content: description })
-      setTitle(''); setDescription(''); setMessage('Работа отправлена на проверку.')
-    } catch { setError('Не удалось отправить работу. Возможно, по этому уроку уже есть ДЗ на проверке.') }
-  }
-
-  const saveAbout = async (event: FormEvent) => {
-    event.preventDefault(); setError(''); setMessage('')
-    try {
-      await api.post(session.role === 'teacher' ? '/teacher/about' : '/student/about', { max_user_id: maxUserId, about_me: about })
-      await reload(); setMessage('Описание профиля сохранено.')
-    } catch { setError('Не удалось сохранить описание.') }
-  }
-  const sendFeedback = async (event: FormEvent) => { event.preventDefault(); setError(''); try { await api.post('/student/feedback', { max_user_id: maxUserId, subject: feedbackSubject, message: feedbackText }); setFeedbackText(''); setMessage('Обратная связь отправлена.') } catch { setError('Не удалось отправить обратную связь.') } }
-
-  return <section>
-    <div className="section-heading"><div><span className="eyebrow">Инструменты</span><h2>{session.role === 'teacher' ? 'Профиль преподавателя' : 'Профиль и новое ДЗ'}</h2></div></div>
-    {message && <p className="success">{message}</p>}{error && <p className="error">{error}</p>}
-    <form className="tool-form" onSubmit={saveAbout}><h3>О себе</h3><textarea value={about} onChange={(event) => setAbout(event.target.value)} placeholder="Расскажите о себе" maxLength={4000} /><button className="button" type="submit">Сохранить профиль</button></form>
-    {session.role === 'student' && <form className="tool-form" onSubmit={sendFeedback}><h3>Обратная связь</h3><label>Тема<select value={feedbackSubject} onChange={(event) => setFeedbackSubject(event.target.value)}><option value="academy">Академия</option><option value="teacher">Преподаватель</option><option value="other">Другое</option></select></label><textarea value={feedbackText} onChange={(event) => setFeedbackText(event.target.value)} placeholder="Ваше сообщение" required /><button className="button" type="submit">Отправить</button></form>}
-    {session.role === 'student' && <form className="tool-form" onSubmit={submitHomework}><h3>Добавить домашнее задание</h3><label>Номер урока<input type="number" min="1" value={lesson} onChange={(event) => setLesson(event.target.value)} required /></label><label>Название работы<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Например, текстурный crop" required /></label><label>Описание<textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Что было сделано" required /></label><label>Демонстрационное фото<select value={fileId} onChange={(event) => setFileId(event.target.value)}>{demoFiles.map((file) => <option key={file} value={file}>{file}</option>)}</select></label><img className="upload-preview" src={`/${fileId}`} alt="Предпросмотр работы" /><button className="button" type="submit">Отправить на проверку</button></form>}
+  const { session, reload } = useAuth(); const maxUserId = getMaxUserId()
+  const profile = (session?.student || session?.teacher || {}) as Record<string, unknown>
+  const [lesson,setLesson]=useState('1'); const [title,setTitle]=useState(''); const [description,setDescription]=useState(''); const [workFile,setWorkFile]=useState<File|null>(null); const [preview,setPreview]=useState('')
+  const [about,setAbout]=useState(''); const [fullName,setFullName]=useState(''); const [phone,setPhone]=useState(''); const [metro,setMetro]=useState(''); const [avatar,setAvatar]=useState<File|null>(null)
+  const [message,setMessage]=useState(''); const [error,setError]=useState(''); const [busy,setBusy]=useState(false); const [feedbackSubject,setFeedbackSubject]=useState('academy'); const [feedbackText,setFeedbackText]=useState('')
+  useEffect(()=>{ setAbout(String(profile.about_me||'')); setFullName(String(profile.full_name||'')); setPhone(String(profile.phone||'')); setMetro(String(profile.metro||'')) },[session])
+  useEffect(()=>{ if(!workFile){setPreview('');return}; const url=URL.createObjectURL(workFile); setPreview(url); return()=>URL.revokeObjectURL(url) },[workFile])
+  if(!maxUserId||!session?.role) return null
+  const uploadHomeworkFile=async(file:File)=>{ const form=new FormData(); form.append('file',file); const response=await api.post('/files/homework',form,{params:{max_user_id:maxUserId},headers:{'Content-Type':'multipart/form-data'}}); return response.data?.data as {file_id:string;content_type?:string} }
+  const submitHomework=async(event:FormEvent)=>{ event.preventDefault(); setError('');setMessage(''); if(!workFile){setError('Выберите фото, видео или документ с работой.');return}; setBusy(true); try{const uploaded=await uploadHomeworkFile(workFile); await api.post('/homeworks',{max_user_id:maxUserId,lesson_number:Number(lesson),content_type:uploaded.content_type||'photo',file_id:uploaded.file_id,haircut_name:title.trim(),text_content:description.trim()}); setTitle('');setDescription('');setWorkFile(null);setMessage('Работа отправлена преподавателю на проверку.')}catch{setError('Не удалось загрузить работу. Проверьте формат и размер файла.')}finally{setBusy(false)}}
+  const saveAbout=async(event:FormEvent)=>{event.preventDefault();setError('');try{await api.post(session.role==='teacher'?'/teacher/about':'/student/about',{max_user_id:maxUserId,about_me:about});await reload();setMessage('Описание профиля сохранено.')}catch{setError('Не удалось сохранить описание.')}}
+  const requestProfileEdit=async(event:FormEvent)=>{event.preventDefault();setError('');try{await api.post('/student/profile-edit',{max_user_id:maxUserId,full_name:fullName.trim(),phone:phone.trim(),metro:metro.trim()});setMessage('Изменения отправлены администратору на согласование.')}catch{setError('Не удалось отправить изменения профиля.')}}
+  const uploadAvatar=async(event:FormEvent)=>{event.preventDefault();if(!avatar)return;setError('');const form=new FormData();form.append('file',avatar);try{await api.post('/student/me/avatar',form,{params:{max_user_id:maxUserId},headers:{'Content-Type':'multipart/form-data'}});setMessage('Аватар обновлён.');setAvatar(null);await reload()}catch{setError('Не удалось загрузить аватар. Используйте JPG, PNG или WEBP.')}}
+  const sendFeedback=async(event:FormEvent)=>{event.preventDefault();setError('');try{await api.post('/student/feedback',{max_user_id:maxUserId,subject:feedbackSubject,message:feedbackText});setFeedbackText('');setMessage('Обратная связь отправлена.')}catch{setError('Не удалось отправить обратную связь.')}}
+  const chooseWorkFile=(event:ChangeEvent<HTMLInputElement>)=>setWorkFile(event.target.files?.[0]||null)
+  return <section className="fi"><div className="section-heading"><div><span className="eyebrow">Личный кабинет</span><h2>{session.role==='teacher'?'Профиль преподавателя':'Профиль и обучение'}</h2></div></div>{message&&<p className="success toast-inline">{message}</p>}{error&&<p className="error toast-inline">{error}</p>}
+    {session.role==='student'&&<form className="tool-form feature-form" onSubmit={submitHomework}><div className="form-title"><span className="form-icon">＋</span><div><h3>Новая работа</h3><p>Загрузите результат урока для проверки</p></div></div><label>Урок<input type="number" min="1" value={lesson} onChange={(e)=>setLesson(e.target.value)} required /></label><label>Название<input value={title} onChange={(e)=>setTitle(e.target.value)} placeholder="Например, текстурный crop" required /></label><label>Комментарий<textarea value={description} onChange={(e)=>setDescription(e.target.value)} placeholder="Что получилось и что вызвало сложности" /></label><label className="file-picker"><input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,application/pdf" onChange={chooseWorkFile}/><span className="file-picker-icon">↑</span><strong>{workFile?workFile.name:'Выбрать файл'}</strong><small>JPG, PNG, WEBP, MP4 или PDF</small></label>{preview&&workFile?.type.startsWith('image/')&&<img className="upload-preview" src={preview} alt="Предпросмотр работы"/>}<button className="button primary" disabled={busy} type="submit">{busy?'Загружаем…':'Отправить на проверку'}</button></form>}
+    <form className="tool-form" onSubmit={saveAbout}><div className="form-title"><span className="form-icon">◎</span><div><h3>О себе</h3><p>Текст увидят посетители портфолио</p></div></div><textarea value={about} onChange={(e)=>setAbout(e.target.value)} placeholder="Расскажите о себе" maxLength={4000}/><button className="button" type="submit">Сохранить описание</button></form>
+    {session.role==='student'&&<><form className="tool-form" onSubmit={uploadAvatar}><h3>Фотография профиля</h3><label className="file-picker compact"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e)=>setAvatar(e.target.files?.[0]||null)}/><span className="file-picker-icon">↑</span><strong>{avatar?avatar.name:'Выбрать фотографию'}</strong></label><button className="button" disabled={!avatar} type="submit">Обновить аватар</button></form><form className="tool-form" onSubmit={requestProfileEdit}><h3>Личные данные</h3><p className="form-hint">Изменения вступят в силу после проверки администратором.</p><label>Имя<input value={fullName} onChange={(e)=>setFullName(e.target.value)} required/></label><label>Телефон<input value={phone} onChange={(e)=>setPhone(e.target.value)} required/></label><label>Метро<input value={metro} onChange={(e)=>setMetro(e.target.value)}/></label><button className="button" type="submit">Отправить изменения</button></form><form className="tool-form" onSubmit={sendFeedback}><h3>Обратная связь</h3><label>Тема<select value={feedbackSubject} onChange={(e)=>setFeedbackSubject(e.target.value)}><option value="academy">Академия</option><option value="teacher">Преподаватель</option><option value="other">Другое</option></select></label><textarea value={feedbackText} onChange={(e)=>setFeedbackText(e.target.value)} placeholder="Ваше сообщение" required/><button className="button" type="submit">Отправить</button></form></>}
   </section>
 }

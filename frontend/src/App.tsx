@@ -11,6 +11,8 @@ import { NotificationsPage } from './pages/NotificationsPage'
 import { StudentToolsPage } from './pages/StudentToolsPage'
 import { HomeworkDetailPage } from './pages/HomeworkDetailPage'
 import { ChatPage } from './pages/ChatPage'
+import { AdminWorkspacePage } from './pages/AdminWorkspacePage'
+import { TeacherDashboardPage } from './pages/TeacherDashboardPage'
 
 export default function App() {
   return (
@@ -26,6 +28,8 @@ export default function App() {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/homeworks/:id" element={<HomeworkDetailPage />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/admin" element={<AdminWorkspacePage />} />
+          <Route path="/teacher-dashboard" element={<TeacherDashboardPage />} />
           <Route path="/loading" element={<LoadingPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

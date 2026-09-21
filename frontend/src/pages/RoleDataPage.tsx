@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../features/auth/AuthProvider'
 import { getMaxUserId } from '../platform/max'
+import { ApiImage } from '../components/ApiImage'
 
 type Homework = {
   id: number
@@ -10,6 +11,7 @@ type Homework = {
   haircut_name?: string | null
   content_type: string
   file_id?: string | null
+  file_url?: string | null
   text_content?: string | null
   status: string
   student_name?: string
@@ -22,14 +24,15 @@ type Student = { id: number; full_name: string; pending_count?: number; about_me
 const imageFiles = new Set(['demo-homework-crop.png', 'demo-homework-fade.png', 'demo-homework-beard.png', 'demo-student-barber.png', 'demo-teacher-barber.png'])
 const statusLabels: Record<string, string> = { pending: 'На проверке', approved: 'Одобрено', revision: 'На доработке', rejected: 'Отклонено' }
 
-function assetUrl(fileId?: string | null) {
-  return fileId && imageFiles.has(fileId) ? `/${fileId}` : null
+function assetUrl(homework: Homework) {
+  if (homework.file_url) return homework.file_url
+  return homework.file_id && imageFiles.has(homework.file_id) ? `/${homework.file_id}` : null
 }
 
 function HomeworkCard({ homework, actions }: { homework: Homework; actions?: ReactNode }) {
-  const image = assetUrl(homework.file_id)
+  const image = assetUrl(homework)
   return <article className="homework-card">
-    {image && <img src={image} alt={homework.haircut_name || 'Учебная работа'} />}
+    <ApiImage src={image} apiPath={!image&&homework.file_id?`/homeworks/${homework.id}/file`:null} alt={homework.haircut_name || 'Учебная работа'} />
     <div className="homework-card-body"><div className="card-meta"><span>Урок {homework.lesson_number || 'бонус'}</span><span className={`status status-${homework.status}`}>{statusLabels[homework.status] || homework.status}</span></div><h3>{homework.haircut_name || 'Учебная работа'}</h3>{homework.student_name && <p className="muted">Ученик: {homework.student_name}</p>}{homework.text_content && <p>{homework.text_content}</p>}{homework.rating && <p className="rating">{'★'.repeat(homework.rating)}{'☆'.repeat(5 - homework.rating)}</p>}{homework.comment && <p className="review">{homework.comment}</p>}{actions}</div>
   </article>
 }

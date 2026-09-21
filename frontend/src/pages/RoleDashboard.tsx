@@ -1,17 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../features/auth/AuthProvider'
 
-const labels: Record<string, string> = { student: 'Кабинет ученика', teacher: 'Кабинет преподавателя', admin: 'Панель администратора' }
-
 export function RoleDashboard() {
   const { session } = useAuth()
   if (!session?.role) return null
-  return <section className="card">
-    <span className="eyebrow">MADCAP Barber Academy</span>
-    <h2>{labels[session.role] || 'Личный кабинет'}</h2>
-    <p>Разделы приложения подключаются через типизированный API. Вы вошли с ролью: {session.role}.</p>
-    <nav className="dashboard-links">
-      <Link className="button" to="/data">Открыть тестовые данные</Link>
-    </nav>
-  </section>
+  if (session.role === 'teacher') return <section className="fi"><div className="dashboard-hero"><span className="eyebrow">MADCAP Barber Academy</span><h2>Кабинет преподавателя</h2><p>Проверяйте работы, отслеживайте прогресс и общайтесь с учениками.</p><Link className="button primary" to="/teacher-dashboard">Открыть сводку</Link></div><div className="quick-grid"><Link className="quick-card" to="/data"><span>✂</span><strong>Мои ученики</strong><small>Работы и оценки</small></Link><Link className="quick-card" to="/chat"><span>↗</span><strong>Сообщения</strong><small>Чаты с учениками</small></Link></div></section>
+  if (session.role === 'admin') return <section className="fi"><div className="dashboard-hero"><span className="eyebrow">MADCAP Barber Academy</span><h2>Панель администратора</h2><p>Сводка академии, заявки и управление учебным процессом.</p><Link className="button primary" to="/data">Открыть сводку</Link></div><div className="quick-grid"><Link className="quick-card" to="/admin"><span>⌘</span><strong>Управление</strong><small>Ученики и преподаватели</small></Link><Link className="quick-card" to="/notifications"><span>●</span><strong>Уведомления</strong><small>Важные события</small></Link></div></section>
+  return <section className="fi"><div className="dashboard-hero student-hero"><span className="eyebrow">MADCAP Barber Academy</span><h2>Ваш дневник обучения</h2><p>Добавляйте работы, получайте обратную связь и собирайте портфолио.</p><Link className="button primary" to="/tools">Добавить работу</Link></div><div className="quick-grid"><Link className="quick-card" to="/data"><span>✂</span><strong>Мои работы</strong><small>История и оценки</small></Link><Link className="quick-card" to="/chat"><span>↗</span><strong>Преподаватель</strong><small>Задать вопрос</small></Link><Link className="quick-card" to="/portfolio"><span>◇</span><strong>Портфолио</strong><small>Публичные работы</small></Link><Link className="quick-card" to="/tools"><span>◎</span><strong>Профиль</strong><small>Данные и настройки</small></Link></div></section>
 }

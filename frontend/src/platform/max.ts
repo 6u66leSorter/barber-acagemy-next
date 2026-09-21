@@ -42,6 +42,6 @@ export function prepareMax() {
   const app = getMax()
   app?.ready?.()
   app?.expand?.()
-  app?.setHeaderColor?.('#080808')
-  app?.setBackgroundColor?.('#080808')
+  app?.setHeaderColor?.('#f6f3ef')
+  app?.setBackgroundColor?.('#f6f3ef')
 }
